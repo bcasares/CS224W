@@ -13,6 +13,7 @@ PROCESSED_GEO_PATH = 'Data/Geo/sf_geoboundaries.shp'
 ID_NAME_CSV_PATH = 'Data/Geo/sf_ids_and_names.csv'
 MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries.png'
 BORDER_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_borders.graph'
+DISTANCE_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_distances.graph'
 
 ###########################################################################
 ###########################################################################
@@ -147,6 +148,55 @@ def create_border_graph(data):
 
 ###########################################################################
 ###########################################################################
+# Create spatial SNAP graph using geo boundaries
+# Graph is undirected but weighted
+# Nodes are zone ids, edges exist between each node pair, weighted by distance between zones
+###########################################################################
+###########################################################################
+def create_distance_graph(data):
+
+    # Initialize new graph
+    graph = snap.TNEANet.New()
+
+    # Add nodes
+    for zone in data:
+        graph.AddNode(zone['properties']['id'])
+    num_nodes = graph.GetNodes()
+
+    # Add edges
+    prev, count = '', 0
+    edge_id = 0
+    for zone1, zone2 in itertools.combinations(data, 2):
+        # Just for tracking progress
+        cur = zone1['properties']['id']
+        if not cur == prev:
+            print('Finished checking %d of %d zones' % (count, num_nodes))
+            prev = cur
+            count += 1
+        # The important stuff
+        zone1_id, zone2_id = zone1['properties']['id'], zone2['properties']['id']
+        zone1_centroid, zone2_centroid = shape(zone1['geometry']).centroid, shape(zone2['geometry']).centroid
+        distance = zone1_centroid.distance(zone2_centroid)
+        if not graph.IsEdge(zone1_id, zone2_id): 
+            graph.AddEdge(zone1_id, zone2_id, edge_id)
+            graph.AddFltAttrDatE(edge_id, distance, 'distance')
+            edge_id += 1
+        if not graph.IsEdge(zone2_id, zone1_id): 
+            graph.AddEdge(zone2_id, zone1_id, edge_id)
+            graph.AddFltAttrDatE(edge_id, distance, 'distance')
+            edge_id += 1
+    num_edges = graph.GetEdges()
+
+    # Print some properties of the graph
+    print('Number of nodes (zones): %d' % num_nodes)
+    print('Number of edges (zone borders): %d' % num_edges)
+
+    # Save graph
+    FOut = snap.TFOut(DISTANCE_GRAPH_PATH)
+    graph.Save(FOut)
+
+###########################################################################
+###########################################################################
 # Main function
 ###########################################################################
 ###########################################################################
@@ -166,9 +216,14 @@ def main():
         draw_map()
 
     # Step 4: Create spatial SNAP graph from zones and borders
-    if True:
+    if False:
         data = load_processed_data()
         create_border_graph(data)
+
+    # Step 5: Create spatial SNAP graph from zones and distances between them
+    if True:
+        data = load_processed_data()
+        create_distance_graph(data)
 
 if __name__ == "__main__":
     main()
