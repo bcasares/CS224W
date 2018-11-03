@@ -12,6 +12,7 @@ RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
 PROCESSED_GEO_PATH = 'Data/Geo/sf_geoboundaries.shp'
 ID_NAME_CSV_PATH = 'Data/Geo/sf_ids_and_names.csv'
 MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries.png'
+TRAVEL_TIMES_PATH = 'Data/Travel_Times/sf_hourly_traveltimes_2018_7.csv'
 BORDER_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_borders.graph'
 DISTANCE_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_distances.graph'
 
@@ -175,8 +176,11 @@ def create_distance_graph(data):
             count += 1
         # The important stuff
         zone1_id, zone2_id = zone1['properties']['id'], zone2['properties']['id']
+        print("Zone IDs: ", zone1_id, zone2_id)
         zone1_centroid, zone2_centroid = shape(zone1['geometry']).centroid, shape(zone2['geometry']).centroid
+        print("Zone Centroids: ", zone1_centroid, zone2_centroid)
         distance = zone1_centroid.distance(zone2_centroid)
+        print("Distance: ", distance)
         if not graph.IsEdge(zone1_id, zone2_id): 
             graph.AddEdge(zone1_id, zone2_id, edge_id)
             graph.AddFltAttrDatE(edge_id, distance, 'distance')
@@ -185,6 +189,7 @@ def create_distance_graph(data):
             graph.AddEdge(zone2_id, zone1_id, edge_id)
             graph.AddFltAttrDatE(edge_id, distance, 'distance')
             edge_id += 1
+        raw_input()
     num_edges = graph.GetEdges()
 
     # Print some properties of the graph
@@ -194,6 +199,69 @@ def create_distance_graph(data):
     # Save graph
     FOut = snap.TFOut(DISTANCE_GRAPH_PATH)
     graph.Save(FOut)
+
+###########################################################################
+###########################################################################
+# Add time attributes to zones and distances graph from travel time data file
+# Remove edges without time attributes
+###########################################################################
+###########################################################################
+
+def modify_distance_graph():
+
+    #Load graph
+    FIn = snap.TFIn(DISTANCE_GRAPH_PATH)
+    graph = snap.TNEANet.Load(FIn)
+
+    #Add time and velocity attributes to edges corresponding to each row in Travel Times csv file
+    with open(TRAVEL_TIMES_PATH) as f:
+        travel_times_reader = csv.reader(f)
+        travel_times_reader.next()
+        for row in travel_times_reader:
+            try:
+                source_id, dest_id, hour_of_day, mean_travel_time = row[:4]
+                print source_id, dest_id, hour_of_day, mean_travel_time
+                edge_itr = graph.GetEI(int(source_id), int(dest_id))
+                
+                #Add travel time attribute
+                graph.AddFltAttrDatE(edge_itr, float(mean_travel_time), 'travel_time_'+str(hour_of_day))
+                
+                #Add speed attribute
+                distance = graph.GetFltAttrDatE(edge_itr.GetId(), 'distance')
+                speed = 60*distance/float(mean_travel_time) #in miles per hour
+                graph.AddFltAttrDatE(edge_itr, speed, 'travel_speed_'+str(hour_of_day))
+            except:
+                print("Failed")
+
+    print(graph.GetEdges())
+
+    FOut = snap.TFOut("intermediate.graph")
+    graph.Save(FOut)
+
+    #Remove edges with no time attribute
+    for edge in graph.Edges():
+        print("Edge number " + str(edge.GetId()))
+        NameV = snap.TStrV()
+        graph.AttrNameEI(edge_itr.GetId(), NameV)
+        if len(NameV) < 2:
+            graph.DelEdge(edge)
+
+    print(graph.GetEdges())
+
+    FOut = snap.TFOut("modified.graph")
+    graph.Save(FOut)
+
+            # NameV = snap.TStrV()
+            # print("Edge ID: " + str(edge_itr.GetId()))
+            # graph.AttrNameEI(edge_itr.GetId(), NameV)
+            # for val in NameV:
+            #     print val
+
+            # ValueV = snap.TStrV()
+            # graph.AttrValueEI(edge_itr.GetId(), ValueV)
+            # for val in ValueV:
+            #     print val
+
 
 ###########################################################################
 ###########################################################################
@@ -221,9 +289,13 @@ def main():
         create_border_graph(data)
 
     # Step 5: Create spatial SNAP graph from zones and distances between them
-    if True:
+    if False:
         data = load_processed_data()
         create_distance_graph(data)
+
+    #Step 6: Add time attributes to graph, remove unncesseary edges
+    if True:
+        modify_distance_graph()
 
 if __name__ == "__main__":
     main()
