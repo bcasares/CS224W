@@ -10,7 +10,7 @@ import snap
 
 RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
 PROCESSED_GEO_PATH = 'Data/Geo/sf_geoboundaries.shp'
-ID_NAME_CSV_PATH = 'Data/Geo/sf_ids_and_names.csv'
+ZONE_INFO_CSV_PATH = 'Data/Geo/sf_zone_info.csv'
 MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries.png'
 TRAVEL_TIMES_PATH = 'Data/Travel_Times/sf_hourly_traveltimes_2018_7.csv'
 BORDER_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_borders.graph'
@@ -68,17 +68,20 @@ def save_shp(data):
 # Save csv mapping zone ids to zone names
 ###########################################################################
 ###########################################################################
-def save_ids_and_names():
+def save_zone_info():
 
     # Extract data
     data = [(zone['properties']['id'], zone['properties']['name'].encode('utf-8')) for zone in fiona.open(PROCESSED_GEO_PATH)]
+    polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
+    centroids = [x.centroid for x in polys]
 
     # Save to csv
-    with open(ID_NAME_CSV_PATH,'wb') as f:
+    with open(ZONE_INFO_CSV_PATH,'wb') as f:
         csv_out = csv.writer(f)
-        csv_out.writerow(['id','name'])
-        for row in data:
-            csv_out.writerow(row)
+        csv_out.writerow(['id','name', 'latitude', 'longitude'])
+        for i, row in enumerate(data):
+            to_write = list(row) + [centroids[i].x, centroids[i].y]
+            csv_out.writerow(to_write)
 
 ###########################################################################
 ###########################################################################
@@ -275,9 +278,9 @@ def main():
         data = load_raw_data()
         save_shp(data)
 
-    # Step 2: Save csv file mapping zone ids to zone names 
-    if False:
-        save_ids_and_names()
+    # Step 2: Save csv file mapping zone ids to zone names and zone centroids
+    if True:
+        save_zone_info()
 
     # Step 3: Draw map using boundary data in .shp file
     if False:
