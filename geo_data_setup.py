@@ -1,5 +1,5 @@
 import json
-from shapely.geometry import mapping, shape, Polygon, MultiPolygon
+from shapely.geometry import mapping, shape, Polygon, MultiPolygon, Point
 import fiona
 import csv
 import itertools
@@ -7,14 +7,21 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from descartes import PolygonPatch
 import snap
+from math import radians, cos, sin, asin, sqrt
+import networkx as nx
+import pandas as pd
 
 RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
 PROCESSED_GEO_PATH = 'Data/Geo/sf_geoboundaries.shp'
 ZONE_INFO_CSV_PATH = 'Data/Geo/sf_zone_info.csv'
 MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries.png'
+MODIFIED_MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries_new.png'
 TRAVEL_TIMES_PATH = 'Data/Travel_Times/sf_hourly_traveltimes_2018_7.csv'
 BORDER_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_borders.graph'
 DISTANCE_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_distances.graph'
+MODIFIED_GRAPH_PATH = 'Data/Geo/TimesDistancesGraph.graph'
+SF_CENTROID = (-122.445515, 37.751943)
+GRAPH_IMAGE_PATH = 'Data/Geo/graph.png'
 
 ###########################################################################
 ###########################################################################
@@ -42,12 +49,29 @@ def load_processed_data():
     data = fiona.open(PROCESSED_GEO_PATH)
     return data
 
+# Calculates distance between 2 GPS coordinates
+def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees)
+    """
+    # convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    r = 3956 # Radius of earth in kilometers. Use 3956 for miles
+    return c * r
+
 ###########################################################################
 ###########################################################################
 # Save list of polygons to .shp file
 ###########################################################################
 ###########################################################################
-def save_shp(data):
+def save_shp(data, radius=None):
 
     # Define a polygon feature geometry with one attribute
     schema = {
@@ -58,10 +82,17 @@ def save_shp(data):
     # Save
     with fiona.open(PROCESSED_GEO_PATH, 'w', 'ESRI Shapefile', schema) as c:
         for zone in data:
-            c.write({
-                'geometry': zone['geometry'],
-                'properties': {'id': zone['properties']['MOVEMENT_ID'], 'name': zone['properties']['DISPLAY_NAME']},
-            })
+            # Check if zone is within radius
+            if radius:
+                zone_centroid = shape(zone['geometry']).centroid
+                #distance = zone_centroid.distance(Point(SF_CENTROID))
+                distance = haversine(zone_centroid.x, zone_centroid.y, SF_CENTROID[0], SF_CENTROID[1])
+                print(distance)
+                if distance < radius:
+                    c.write({
+                        'geometry': zone['geometry'],
+                        'properties': {'id': zone['properties']['MOVEMENT_ID'], 'name': zone['properties']['DISPLAY_NAME']},
+                    })
 
 ###########################################################################
 ###########################################################################
@@ -80,7 +111,7 @@ def save_zone_info():
         csv_out = csv.writer(f)
         csv_out.writerow(['id','name', 'latitude', 'longitude'])
         for i, row in enumerate(data):
-            to_write = list(row) + [centroids[i].x, centroids[i].y]
+            to_write = list(row) + [centroids[i].y, centroids[i].x]
             csv_out.writerow(to_write)
 
 ###########################################################################
@@ -88,10 +119,13 @@ def save_zone_info():
 # Plot and save a map using data from .shp file
 ###########################################################################
 ###########################################################################
-def draw_map():
+def draw_map(filename, zone_filter=None):
 
     # Extract polygons
-    polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
+    if zone_filter:
+        polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH) if zone['properties']['id'] in zone_filter])
+    else:
+        polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
 
     # Setup plot    
     fig = plt.figure(figsize=(15, 20))
@@ -108,7 +142,7 @@ def draw_map():
     ax.add_collection(PatchCollection(patches, match_original=True))
     ax.set_xticks([])
     ax.set_yticks([])
-    plt.savefig(MAP_IMAGE_PATH, alpha=True, dpi=300)
+    plt.savefig(filename, alpha=True, dpi=300)
     plt.show()
 
 ###########################################################################
@@ -265,6 +299,76 @@ def modify_distance_graph():
             # for val in ValueV:
             #     print val
 
+################r###########################################################
+###########################################################################
+# Plot area covered with modified graph
+###########################################################################
+###########################################################################
+def draw_new_map():
+
+    # Load graph
+    FIn = snap.TFIn(MODIFIED_GRAPH_PATH)
+    graph = snap.TNEANet.Load(FIn)
+
+    # Get node ids (must have edges connected to them)
+    node_ids = [node.GetId() for node in graph.Nodes() if node.GetDeg() > 0]
+
+    print(len(node_ids))
+
+    # Draw map
+    draw_map(filename=MODIFIED_MAP_IMAGE_PATH, zone_filter=node_ids)
+
+################r###########################################################
+###########################################################################
+# Make smaller
+###########################################################################
+###########################################################################
+def modify():
+
+    # Load graph
+    FIn = snap.TFIn(MODIFIED_GRAPH_PATH)
+    graph = snap.TNEANet.Load(FIn)
+
+    nodes_ids = [zone['properties']['id'] for zone in fiona.open(PROCESSED_GEO_PATH)]
+
+    for node in graph.Nodes():
+        if not node.GetId() in nodes_ids:
+            graph.DelNode(node.GetId())
+
+    print('Nodes: %d' % graph.GetNodes())
+    print('Edges: %d' % graph.GetEdges())
+
+    FOut = snap.TFOut("Data/Geo/smaller.graph")
+    graph.Save(FOut)
+
+def draw_graph():
+
+    # Load graph
+    FIn = snap.TFIn("Data/Geo/smaller.graph")
+    graph = snap.TNEANet.Load(FIn)
+    print(graph.GetNodes())
+    print(graph.GetEdges())
+
+
+    # Load zone info
+    zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+    lat_longs = {}
+    for i, row in zone_info.iterrows():
+        lat_longs[row.id] = (row.latitude, row.longitude)
+
+    # New nx graph
+    nx_graph = nx.Graph()
+    for node in graph.Nodes():
+        nx_graph.add_node(node.GetId(), pos=(lat_longs[node.GetId()][1],lat_longs[node.GetId()][0]))
+    for edge in graph.Edges():
+        nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
+
+    pos = nx.get_node_attributes(nx_graph, 'pos')
+
+    nx.draw(nx_graph, pos, node_size=1)
+    plt.figure(figsize=(25, 15))
+    plt.savefig(GRAPH_IMAGE_PATH, alpha=True, dpi=300)
+    plt.show()
 
 ###########################################################################
 ###########################################################################
@@ -276,15 +380,15 @@ def main():
     # Step 1: Load raw data and convert boundaries to .shp file
     if False:
         data = load_raw_data()
-        save_shp(data)
+        save_shp(data, radius=14)
 
     # Step 2: Save csv file mapping zone ids to zone names and zone centroids
-    if True:
+    if False:
         save_zone_info()
 
     # Step 3: Draw map using boundary data in .shp file
     if False:
-        draw_map()
+        draw_map(filename=MAP_IMAGE_PATH)
 
     # Step 4: Create spatial SNAP graph from zones and borders
     if False:
@@ -297,8 +401,18 @@ def main():
         create_distance_graph(data)
 
     #Step 6: Add time attributes to graph, remove unncesseary edges
-    if True:
+    if False:
         modify_distance_graph()
+
+    # Draw new map
+    if False:
+        draw_new_map()
+
+    if False:
+        modify()
+
+    if True:
+        draw_graph()
 
 if __name__ == "__main__":
     main()
