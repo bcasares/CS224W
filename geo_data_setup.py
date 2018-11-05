@@ -109,7 +109,7 @@ def save_zone_info():
     # Save to csv
     with open(ZONE_INFO_CSV_PATH,'wb') as f:
         csv_out = csv.writer(f)
-        csv_out.writerow(['id','name', 'latitude', 'longitude'])
+        csv_out.writerow(['id','address', 'longitude', 'latitude'])
         for i, row in enumerate(data):
             to_write = list(row) + [centroids[i].y, centroids[i].x]
             csv_out.writerow(to_write)
@@ -127,7 +127,7 @@ def draw_map(filename, zone_filter=None):
     else:
         polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
 
-    # Setup plot    
+    # Setup plot
     fig = plt.figure(figsize=(15, 20))
     ax = fig.add_subplot(111)
     min_x, min_y, max_x, max_y = polys.bounds
@@ -218,11 +218,11 @@ def create_distance_graph(data):
         print("Zone Centroids: ", zone1_centroid, zone2_centroid)
         distance = zone1_centroid.distance(zone2_centroid)
         print("Distance: ", distance)
-        if not graph.IsEdge(zone1_id, zone2_id): 
+        if not graph.IsEdge(zone1_id, zone2_id):
             graph.AddEdge(zone1_id, zone2_id, edge_id)
             graph.AddFltAttrDatE(edge_id, distance, 'distance')
             edge_id += 1
-        if not graph.IsEdge(zone2_id, zone1_id): 
+        if not graph.IsEdge(zone2_id, zone1_id):
             graph.AddEdge(zone2_id, zone1_id, edge_id)
             graph.AddFltAttrDatE(edge_id, distance, 'distance')
             edge_id += 1
@@ -259,10 +259,10 @@ def modify_distance_graph():
                 source_id, dest_id, hour_of_day, mean_travel_time = row[:4]
                 print source_id, dest_id, hour_of_day, mean_travel_time
                 edge_itr = graph.GetEI(int(source_id), int(dest_id))
-                
+
                 #Add travel time attribute
                 graph.AddFltAttrDatE(edge_itr, float(mean_travel_time), 'travel_time_'+str(hour_of_day))
-                
+
                 #Add speed attribute
                 distance = graph.GetFltAttrDatE(edge_itr.GetId(), 'distance')
                 speed = 60*distance/float(mean_travel_time) #in miles per hour
