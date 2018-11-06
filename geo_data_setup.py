@@ -372,27 +372,16 @@ def main():
         modify_distance_graph()
 
     # Step 3: Draw map using boundary data in .shp file and graph
-    if False:
+    if True:
         # Draw map with zones and centroids
-        #draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
+        draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
         # Draw map with zones, centroids, and edges based on borders
-        #FIn = snap.TFIn(BORDER_GRAPH_PATH)
-        #graph = snap.TUNGraph.Load(FIn)
-        #draw_map(filename=UBER_ZONE_BORDER_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
-        # Draw map with zones, centroids, and edges based on trips
-        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
-        graph = snap.TNEANet.Load(FIn)
-        draw_map(filename=FINAL_UBER_GRAPH_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
-
-    # Draw border uber graph (edges based on zone borders)
-    if False:
-        # Load graph 
         FIn = snap.TFIn(BORDER_GRAPH_PATH)
         graph = snap.TUNGraph.Load(FIn)
-        draw_graph(graph, UBER_ZONE_BORDER_IMAGE_PATH, attributes=False)
+        draw_map(filename=UBER_ZONE_BORDER_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
 
     # Draw final uber graph (edges based on trips)
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
