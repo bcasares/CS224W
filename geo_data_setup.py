@@ -113,7 +113,7 @@ def save_zone_info():
 # Plot and save a map using data from .shp file
 ###########################################################################
 ###########################################################################
-def draw_map(filename, zone_filter=None):
+def draw_map(filename, zone_filter=None, plot_centroids=False):
     # Extract polygons
     if zone_filter:
         polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH) if zone['properties']['id'] in zone_filter])
@@ -131,6 +131,10 @@ def draw_map(filename, zone_filter=None):
     patches = []
     for idx, p in enumerate(polys): patches.append(PolygonPatch(p, fc='#AEEDFF', ec='#555555', alpha=1., zorder=1))
     ax.add_collection(PatchCollection(patches, match_original=True))
+    if plot_centroids:
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        for i, row in zone_info.iterrows(): 
+            ax.plot(row.latitude, row.longitude, color='r', zorder=0)
     ax.set_xticks([])
     ax.set_yticks([])
     plt.savefig(filename, alpha=True, dpi=300)
@@ -363,9 +367,10 @@ def draw_graph(graph, filename, attributes=True):
 
     pos = nx.get_node_attributes(nx_graph, 'pos')
 
+    plt.figure(figsize=(7,12))
     nx.draw(nx_graph, pos, node_size=1)
-    #plt.savefig(filename, alpha=True, dpi=300)
-    plt.show()
+    plt.savefig(filename)
+    #plt.show()
 
 ###########################################################################
 ###########################################################################
@@ -384,8 +389,8 @@ def main():
         save_zone_info()
 
     # Step 3: Draw map using boundary data in .shp file
-    if False:
-        draw_map(filename=MAP_IMAGE_PATH)
+    if True:
+        draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
 
     # Step 4: Create spatial SNAP graph from zones and borders
     if False:
@@ -416,7 +421,7 @@ def main():
         draw_graph(graph, UBER_ZONE_BORDER_IMAGE_PATH, attributes=False)
 
     # Draw final uber graph (edges based on trips)
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
