@@ -113,7 +113,7 @@ def save_zone_info():
 # Plot and save a map using data from .shp file
 ###########################################################################
 ###########################################################################
-def draw_map(filename, zone_filter=None, plot_centroids=False):
+def draw_map(filename, zone_filter=None, plot_centroids=False, plot_edges=False, graph=None):
     # Extract polygons
     if zone_filter:
         polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH) if zone['properties']['id'] in zone_filter])
@@ -128,17 +128,29 @@ def draw_map(filename, zone_filter=None, plot_centroids=False):
     ax.set_ylim(min_y - 0.2 * h, max_y + 0.2 * h)
     ax.set_aspect(1)
     # Plot, save, and show
+    # Plot zones
     patches = []
     for idx, p in enumerate(polys): patches.append(PolygonPatch(p, fc='#AEEDFF', ec='#555555', alpha=1., zorder=1))
     ax.add_collection(PatchCollection(patches, match_original=True))
+    # Plot edges
+    if plot_edges and graph:
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        lat_longs = {}
+        for i, row in zone_info.iterrows(): lat_longs[row.id] = (row.latitude, row.longitude)
+        for edge in graph.Edges():
+            start = (lat_longs[edge.GetSrcNId()][0], lat_longs[edge.GetSrcNId()][1])
+            end = (lat_longs[edge.GetDstNId()][0], lat_longs[edge.GetDstNId()][1])
+            print(start, end)
+            ax.plot([start[0], end[0]], [start[1], end[1]], color='g', linewidth='1')
+    # Plot centroids
     if plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         for i, row in zone_info.iterrows(): 
-            ax.plot(row.latitude, row.longitude, color='r', zorder=0)
+            ax.scatter(row.latitude, row.longitude, color='r', s=20)
     ax.set_xticks([])
     ax.set_yticks([])
     plt.savefig(filename, alpha=True, dpi=300)
-    plt.show()
+    #plt.show()
 
 ###########################################################################
 ###########################################################################
@@ -269,9 +281,9 @@ def modify_distance_graph():
     # Remove edges with no time attributes, then nodes with no connecting edges
     for edge in graph.Edges():
         NameV = snap.TStrV()
-        graph.AttrNameEI(edge_itr.GetId(), NameV)
+        graph.AttrNameEI(edge.GetId(), NameV)
         if len(NameV) < 2:
-            graph.DelEdge(edge)
+            graph.DelEdge(edge.GetId())
     for node in graph.Nodes():
         if node.GetDeg() == 0:
             graph.DelNode(node.GetId())
@@ -292,48 +304,6 @@ def modify_distance_graph():
     # graph.AttrValueEI(edge_itr.GetId(), ValueV)
     # for val in ValueV:
     #     print val
-
-################r###########################################################
-###########################################################################
-# Plot area covered with modified graph
-###########################################################################
-###########################################################################
-def draw_new_map():
-
-    # Load graph
-    FIn = snap.TFIn(MODIFIED_GRAPH_PATH)
-    graph = snap.TNEANet.Load(FIn)
-
-    # Get node ids (must have edges connected to them)
-    node_ids = [node.GetId() for node in graph.Nodes() if node.GetDeg() > 0]
-
-    print(len(node_ids))
-
-    # Draw map
-    draw_map(filename=MODIFIED_MAP_IMAGE_PATH, zone_filter=node_ids)
-
-################r###########################################################
-###########################################################################
-# Make smaller
-###########################################################################
-###########################################################################
-def modify():
-
-    # Load graph
-    FIn = snap.TFIn(MODIFIED_GRAPH_PATH)
-    graph = snap.TNEANet.Load(FIn)
-
-    nodes_ids = [zone['properties']['id'] for zone in fiona.open(PROCESSED_GEO_PATH)]
-
-    for node in graph.Nodes():
-        if not node.GetId() in nodes_ids:
-            graph.DelNode(node.GetId())
-
-    print('Nodes: %d' % graph.GetNodes())
-    print('Edges: %d' % graph.GetEdges())
-
-    FOut = snap.TFOut("Data/Geo/smaller.graph")
-    graph.Save(FOut)
 
 ################r###########################################################
 ###########################################################################
@@ -388,10 +358,6 @@ def main():
     if False:
         save_zone_info()
 
-    # Step 3: Draw map using boundary data in .shp file
-    if True:
-        draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
-
     # Step 4: Create spatial SNAP graph from zones and borders
     if False:
         data = load_processed_data()
@@ -405,6 +371,19 @@ def main():
     # Step 6: Add time / speed attributes to graph, remove unncesseary edges and nodes
     if False:
         modify_distance_graph()
+
+    # Step 3: Draw map using boundary data in .shp file and graph
+    if True:
+        # Draw map with zones and centroids
+        draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
+        # Draw map with zones, centroids, and edges based on borders
+        FIn = snap.TFIn(BORDER_GRAPH_PATH)
+        graph = snap.TUNGraph.Load(FIn)
+        draw_map(filename=UBER_ZONE_BORDER_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
+        # Draw map with zones, centroids, and edges based on trips
+        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
+        graph = snap.TNEANet.Load(FIn)
+        draw_map(filename=FINAL_UBER_GRAPH_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
 
     # Draw new map
     if False:
