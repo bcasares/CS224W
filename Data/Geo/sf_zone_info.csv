@@ -1,4 +1,4 @@
-id,name,latitude,longitude
+id,address,longitude,latitude
 9,"500 Hyde Street, Tenderloin, San Francisco",37.78584640898726,-122.41635294740908
 20,"900 Sutter Street, Lower Nob Hill, San Francisco",37.78797246367878,-122.41850273420614
 21,"3400 Pierce Street, Marina District, San Francisco",37.80226468151466,-122.4391368296301
