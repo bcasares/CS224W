@@ -11,20 +11,23 @@ from math import radians, cos, sin, asin, sqrt
 import networkx as nx
 import pandas as pd
 
+# Source files / other
 RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
 PROCESSED_GEO_PATH = 'Data/Geo/sf_geoboundaries.shp'
 ZONE_INFO_CSV_PATH = 'Data/Geo/sf_zone_info.csv'
-MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries.png'
-MODIFIED_MAP_IMAGE_PATH = 'Data/Geo/sf_geoboundaries_new.png'
 TRAVEL_TIMES_PATH = 'Data/Travel_Times/sf_hourly_traveltimes_2018_1.csv'
-BORDER_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_borders.graph'
-DISTANCE_GRAPH_PATH = 'Data/Geo/sf_geoboundaries_distances.graph'
-INTERMEDIATE_UBER_GRAPH_PATH = 'Data/Geo/sf_uber_intermediate_graph.graph'
-FINAL_UBER_GRAPH_PATH = 'Data/Geo/sf_uber_final_graph.graph'
-MODIFIED_GRAPH_PATH = 'Data/Geo/TimesDistancesGraph.graph'
 SF_CENTROID = (-122.445515, 37.751943)
-UBER_ZONE_BORDER_IMAGE_PATH = 'Data/Geo/sf_uber_zone_borders_image.png'
-FINAL_UBER_GRAPH_IMAGE_PATH = 'Data/Geo/sf_uber_final_image.png'
+
+# Graphs
+BORDER_GRAPH_PATH = 'Data/Geo/Graphs/sf_geoboundaries_borders.graph'
+DISTANCE_GRAPH_PATH = 'Data/Geo/Graphs/sf_geoboundaries_distances.graph'
+INTERMEDIATE_UBER_GRAPH_PATH = 'Data/Geo/Graphs/sf_uber_intermediate_graph.graph'
+FINAL_UBER_GRAPH_PATH = 'Data/Geo/Graphs/sf_uber_final_graph.graph'
+
+# Output images
+MAP_IMAGE_PATH = 'Data/Geo/Images/sf_geoboundaries.png'
+UBER_ZONE_BORDER_IMAGE_PATH = 'Data/Geo/Images/sf_uber_zone_borders_image.png'
+FINAL_UBER_GRAPH_IMAGE_PATH = 'Data/Geo/Images/sf_uber_final_image.png'
 
 ###########################################################################
 ###########################################################################
@@ -107,49 +110,6 @@ def save_zone_info():
         for i, row in enumerate(data):
             to_write = list(row) + [centroids[i].y, centroids[i].x]
             csv_out.writerow(to_write)
-
-###########################################################################
-###########################################################################
-# Plot and save a map using data from .shp file
-###########################################################################
-###########################################################################
-def draw_map(filename, zone_filter=None, plot_centroids=False, plot_edges=False, graph=None):
-    # Extract polygons
-    if zone_filter:
-        polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH) if zone['properties']['id'] in zone_filter])
-    else:
-        polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
-    # Setup plot
-    fig = plt.figure(figsize=(15, 20))
-    ax = fig.add_subplot(111)
-    min_x, min_y, max_x, max_y = polys.bounds
-    w, h = max_x - min_x, max_y - min_y
-    ax.set_xlim(min_x - 0.2 * w, max_x + 0.2 * w)
-    ax.set_ylim(min_y - 0.2 * h, max_y + 0.2 * h)
-    ax.set_aspect(1)
-    # Plot, save, and show
-    # Plot zones
-    patches = []
-    for idx, p in enumerate(polys): patches.append(PolygonPatch(p, fc='#AEEDFF', ec='#555555', alpha=1., zorder=1))
-    ax.add_collection(PatchCollection(patches, match_original=True))
-    # Plot edges
-    if plot_edges and graph:
-        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
-        lat_longs = {}
-        for i, row in zone_info.iterrows(): lat_longs[row.id] = (row.latitude, row.longitude)
-        for edge in graph.Edges():
-            start = (lat_longs[edge.GetSrcNId()][0], lat_longs[edge.GetSrcNId()][1])
-            end = (lat_longs[edge.GetDstNId()][0], lat_longs[edge.GetDstNId()][1])
-            ax.plot([start[0], end[0]], [start[1], end[1]], color='g', linewidth='1')
-    # Plot centroids
-    if plot_centroids:
-        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
-        for i, row in zone_info.iterrows(): 
-            ax.scatter(row.latitude, row.longitude, color='r', s=20)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    plt.savefig(filename, alpha=True, dpi=300)
-    #plt.show()
 
 ###########################################################################
 ###########################################################################
@@ -304,6 +264,57 @@ def modify_distance_graph():
     # for val in ValueV:
     #     print val
 
+###########################################################################
+###########################################################################
+# Plot and save a map using data from .shp file
+###########################################################################
+###########################################################################
+def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None):
+    # Extract polygons
+    polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
+    # Setup plot
+    fig = plt.figure(figsize=(15, 20))
+    ax = fig.add_subplot(111)
+    min_x, min_y, max_x, max_y = polys.bounds
+    w, h = max_x - min_x, max_y - min_y
+    ax.set_xlim(min_x - 0.2 * w, max_x + 0.2 * w)
+    ax.set_ylim(min_y - 0.2 * h, max_y + 0.2 * h)
+    ax.set_aspect(1)
+    # Plot, save, and show
+    # Plot zones
+    patches = []
+    for idx, p in enumerate(polys): patches.append(PolygonPatch(p, fc='#AEEDFF', ec='#555555', alpha=1., zorder=1))
+    ax.add_collection(PatchCollection(patches, match_original=True))
+    # Plot edges
+    if plot_edges and graph:
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        lat_longs = {}
+        for i, row in zone_info.iterrows(): lat_longs[row.id] = (row.latitude, row.longitude)
+        for edge in graph.Edges():
+            start = (lat_longs[edge.GetSrcNId()][0], lat_longs[edge.GetSrcNId()][1])
+            end = (lat_longs[edge.GetDstNId()][0], lat_longs[edge.GetDstNId()][1])
+            ax.plot([start[0], end[0]], [start[1], end[1]], color='g', linewidth='1')
+    # Plot and scale centroids
+    if plot_centroids and scale_centroids and graph:
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        # Scale weights so that largest is 50
+        weights = {}
+        for i, row in zone_info.iterrows(): weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
+        largest = max(weights.itervalues())
+        for key in weights: weights[key] = (weights[key] / largest) * 50
+        # Plot
+        for i, row in zone_info.iterrows(): 
+            ax.scatter(row.latitude, row.longitude, s=weights[row.id], c=weights[row.id]/50, cmap=plt.cm.get_cmap('autumn'))
+    # Plot centroids
+    elif plot_centroids:
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        for i, row in zone_info.iterrows(): 
+            ax.scatter(row.latitude, row.longitude, color='r', s=20)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    plt.savefig(filename, alpha=True, dpi=300)
+    #plt.show()
+
 ################r###########################################################
 ###########################################################################
 # Draw the uber travel data graph
@@ -341,6 +352,65 @@ def draw_graph(graph, filename, attributes=True):
     plt.savefig(filename)
     #plt.show()
 
+################r###########################################################
+###########################################################################
+# Build new graph with edges having only a single attribute
+###########################################################################
+###########################################################################
+def build_single_weight_graph(original_graph, attribute):
+
+    # Initialize new graph
+    graph = snap.TNEANet.New()
+
+    # Add nodes
+    for node in original_graph.Nodes():
+        graph.AddNode(node.GetId())
+    num_nodes = graph.GetNodes()
+
+    # Add edges
+    for edge in original_graph.Edges():
+        src, dst, edge_id = edge.GetSrcNId(), edge.GetDstNId(), edge.GetId()
+        graph.AddEdge(src, dst, edge_id)
+        weight = original_graph.GetFltAttrDatE(edge_id, attribute)
+        graph.AddFltAttrDatE(edge_id, weight, 'weight')
+
+    # Print num nodes and edges
+    #print('[Original] Num nodes: %d, Num edges: %d' % (original_graph.GetNodes(), original_graph.GetEdges()))
+    #print('[New] Num nodes: %d, Num edges: %d' % (graph.GetNodes(), graph.GetEdges()))
+
+    # Return
+    return graph
+
+################r###########################################################
+###########################################################################
+# Build new graph with edges having only a single attribute
+###########################################################################
+###########################################################################
+def compute_node_degree(original_graph, attribute, only_zone_neighbors=False, zone_neighbor_graph=None):
+
+    # Create new graph using desired attribute
+    graph = build_single_weight_graph(original_graph, attribute)
+
+    # Loop through all nodes, add attribute to each that is the sum of all adjacent edge weights
+    for node in graph.Nodes():
+        node_id, num_out_nodes = node.GetId(), node.GetOutDeg()
+        degree = 0
+        for i in range(num_out_nodes):
+            neighbor_id = node.GetOutNId(i)
+            # If we only want to consider neighboring zones
+            if only_zone_neighbors and zone_neighbor_graph: include = zone_neighbor_graph.IsEdge(node_id, neighbor_id)
+            # Else include everything
+            else: include = True
+            # Add to total degree
+            if include:
+                edge_id = graph.GetEI(node_id, neighbor_id).GetId()
+                weight = graph.GetFltAttrDatE(edge_id, 'weight')
+                if weight > 0: degree += weight # For some reason a few weights are -inf
+        graph.AddFltAttrDatN(node_id, degree, 'weight')
+
+    # Return
+    return graph
+
 ###########################################################################
 ###########################################################################
 # Main function
@@ -357,22 +427,22 @@ def main():
     if False:
         save_zone_info()
 
-    # Step 4: Create spatial SNAP graph from zones and borders
+    # Step 3: Create spatial SNAP graph from zones and borders
     if False:
         data = load_processed_data()
         create_border_graph(data)
 
-    # Step 5: Create spatial SNAP graph from zones and distances between them
+    # Step 4: Create spatial SNAP graph from zones and distances between them
     if False:
         data = load_processed_data()
         create_distance_graph(data)
 
-    # Step 6: Add time / speed attributes to graph, remove unncesseary edges and nodes
+    # Step 5: Add time / speed attributes to graph, remove unncesseary edges and nodes
     if False:
         modify_distance_graph()
 
-    # Step 3: Draw map using boundary data in .shp file and graph
-    if True:
+    # Step 6: Draw map using boundary data in .shp file and graph
+    if False:
         # Draw map with zones and centroids
         draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
         # Draw map with zones, centroids, and edges based on borders
@@ -380,12 +450,31 @@ def main():
         graph = snap.TUNGraph.Load(FIn)
         draw_map(filename=UBER_ZONE_BORDER_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
 
-    # Draw final uber graph (edges based on trips)
+    # Step 7: Draw final uber graph (edges based on trips)
     if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
         draw_graph(graph, FINAL_UBER_GRAPH_IMAGE_PATH)
+
+    ###########################################################################################
+    # Experiments
+    ###########################################################################################
+
+    # Compute / plot node degrees (sum of all adjacent edge weights)
+    if True:
+        # Load graph 
+        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
+        original_graph = snap.TNEANet.Load(FIn)
+        # Compute node degree for various attributes
+        attributes = ['travel_time_6', 'travel_time_12', 'travel_time_18', \
+                        'travel_speed_6', 'travel_speed_12', 'travel_speed_18']
+        for attribute in attributes:
+            new_graph = compute_node_degree(original_graph, attribute)
+            # Plot
+            draw_map('Data/Geo/Images/node_degree_'+attribute+'.png', \
+                        plot_centroids=True, scale_centroids=True, graph=new_graph)
+
 
 if __name__ == "__main__":
     main()
