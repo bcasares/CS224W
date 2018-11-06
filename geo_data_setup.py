@@ -336,7 +336,7 @@ def modify():
 # Draw the uber travel data graph
 ###########################################################################
 ###########################################################################
-def draw_graph(graph, filename):
+def draw_graph(graph, filename, attributes=True):
 
     # Load zone info
     zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
@@ -349,16 +349,21 @@ def draw_graph(graph, filename):
     for node in graph.Nodes():
         nx_graph.add_node(node.GetId(), pos=(lat_longs[node.GetId()][1],lat_longs[node.GetId()][0]))
     for edge in graph.Edges():
-        nameV = snap.TStrV()
-        graph.FltAttrNameEI(edge.GetId(), nameV)
-        times = [name for name in list(nameV) if 'travel_time_' in name]
-        values = [graph.GetFltAttrDatE(edge.GetId(), time) for time in times]
-        nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId(), weight=float(sum(values))/len(values))
+        if attributes:
+            nameV = snap.TStrV()
+            graph.FltAttrNameEI(edge.GetId(), nameV)
+            times = [name for name in list(nameV) if 'travel_time_' in name]
+            values = [graph.GetFltAttrDatE(edge.GetId(), time) for time in times]
+            try:
+                nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId(), weight=float(sum(values))/len(values))
+            except:
+                nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
+        else:
+            nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
 
     pos = nx.get_node_attributes(nx_graph, 'pos')
 
     nx.draw(nx_graph, pos, node_size=1)
-    plt.figure(figsize=(25, 15))
     #plt.savefig(filename, alpha=True, dpi=300)
     plt.show()
 
@@ -383,7 +388,7 @@ def main():
         draw_map(filename=MAP_IMAGE_PATH)
 
     # Step 4: Create spatial SNAP graph from zones and borders
-    if True:
+    if False:
         data = load_processed_data()
         create_border_graph(data)
 
@@ -404,12 +409,11 @@ def main():
         modify()
 
     # Draw border uber graph (edges based on zone borders)
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(BORDER_GRAPH_PATH)
-        graph = snap.TNEANet.Load(FIn)
-        print('Loaded graph')
-        draw_graph(graph, UBER_ZONE_BORDER_IMAGE_PATH)
+        graph = snap.TUNGraph.Load(FIn)
+        draw_graph(graph, UBER_ZONE_BORDER_IMAGE_PATH, attributes=False)
 
     # Draw final uber graph (edges based on trips)
     if True:
