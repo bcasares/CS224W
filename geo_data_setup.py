@@ -386,7 +386,7 @@ def build_single_weight_graph(original_graph, attribute):
 # Build new graph with edges having only a single attribute
 ###########################################################################
 ###########################################################################
-def compute_node_degree(original_graph, attribute, only_zone_neighbors=False, zone_neighbor_graph=None):
+def compute_node_degree(original_graph, attribute, average=False, only_zone_neighbors=False, zone_neighbor_graph=None):
 
     # Create new graph using desired attribute
     graph = build_single_weight_graph(original_graph, attribute)
@@ -406,6 +406,8 @@ def compute_node_degree(original_graph, attribute, only_zone_neighbors=False, zo
                 edge_id = graph.GetEI(node_id, neighbor_id).GetId()
                 weight = graph.GetFltAttrDatE(edge_id, 'weight')
                 if weight > 0: degree += weight # For some reason a few weights are -inf
+        # If doing avg degree
+        if average: degree /= num_out_nodes
         graph.AddFltAttrDatN(node_id, degree, 'weight')
 
     # Return
@@ -462,7 +464,7 @@ def main():
     ###########################################################################################
 
     # Compute / plot node degrees (sum of all adjacent edge weights)
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
@@ -475,6 +477,33 @@ def main():
             draw_map('Data/Geo/Images/node_degree_'+attribute+'.png', \
                         plot_centroids=True, scale_centroids=True, graph=new_graph)
 
+    # Compute average node degree over time
+    if True:
+        # Load graph 
+        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
+        original_graph = snap.TNEANet.Load(FIn)
+        # Compute node degree for various attributes
+        attributes = [('travel_time', 'minutes'), ('travel_speed', 'mph')]
+        for attribute, label in attributes:
+            # Compute
+            results = []
+            for hour in range(24):
+                new_graph = compute_node_degree(original_graph, attribute+'_'+str(hour), average=True)
+                avg_degree = 0
+                for node in new_graph.Nodes():
+                    avg_degree += new_graph.GetFltAttrDatN(node.GetId(), 'weight')
+                avg_degree /= float(new_graph.GetNodes())
+                if attribute == 'travel_time': avg_degree /= 60.0
+                print('[%d] %.2f' % (hour, avg_degree))
+                results.append(avg_degree)
+            # Plot
+            plt.figure(figsize=(15,10))
+            plt.plot(range(24), results)
+            plt.xlabel('Hour of Day')
+            plt.xticks(range(24))
+            plt.ylabel('Average ' + ' '.join(attribute.split('_')[:2]) + '(' + label + ')')
+            plt.title('Average ' + ' '.join(attribute.split('_')[:2]) + ' by Hour of Day')
+            plt.savefig('Data/Geo/Images/' + attribute + '_avg_by_hour')
 
 if __name__ == "__main__":
     main()
