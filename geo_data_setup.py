@@ -23,6 +23,18 @@ MODIFIED_GRAPH_PATH = 'Data/Geo/TimesDistancesGraph.graph'
 SF_CENTROID = (-122.445515, 37.751943)
 GRAPH_IMAGE_PATH = 'Data/Geo/graph.png'
 
+# Calculate miles between two points
+def haversine(lat1, lon1, lat2, lon2):
+    # Convert decimal degrees to radians 
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    # Apply formula 
+    dlon = lon2 - lon1 
+    dlat = lat2 - lat1 
+    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+    c = 2 * asin(sqrt(a)) 
+    r = 3956 # Radius of earth in kilometers. Use 3956 for miles
+    return c * r
+
 ###########################################################################
 ###########################################################################
 # Load raw data (.json file)
@@ -48,23 +60,6 @@ def load_processed_data():
     # Open shp file and return data
     data = fiona.open(PROCESSED_GEO_PATH)
     return data
-
-# Calculates distance between 2 GPS coordinates
-def haversine(lat1, lon1, lat2, lon2):
-    """
-    Calculate the great circle distance between two points 
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians 
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-
-    # haversine formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
-    r = 3956 # Radius of earth in kilometers. Use 3956 for miles
-    return c * r
 
 ###########################################################################
 ###########################################################################
@@ -341,14 +336,16 @@ def modify():
     FOut = snap.TFOut("Data/Geo/smaller.graph")
     graph.Save(FOut)
 
+################r###########################################################
+###########################################################################
+# Draw the uber travel data graph
+###########################################################################
+###########################################################################
 def draw_graph():
 
     # Load graph
     FIn = snap.TFIn("Data/Geo/smaller.graph")
     graph = snap.TNEANet.Load(FIn)
-    print(graph.GetNodes())
-    print(graph.GetEdges())
-
 
     # Load zone info
     zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
@@ -361,7 +358,11 @@ def draw_graph():
     for node in graph.Nodes():
         nx_graph.add_node(node.GetId(), pos=(lat_longs[node.GetId()][1],lat_longs[node.GetId()][0]))
     for edge in graph.Edges():
-        nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
+        nameV = snap.TStrV()
+        graph.FltAttrNameEI(edge.GetId(), nameV)
+        times = [name for name in list(nameV) if 'travel_time_' in name]
+        values = [graph.GetFltAttrDatE(edge.GetId(), time) for time in times]
+        nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId(), weight=float(sum(values))/len(values))
 
     pos = nx.get_node_attributes(nx_graph, 'pos')
 
@@ -369,6 +370,24 @@ def draw_graph():
     plt.figure(figsize=(25, 15))
     plt.savefig(GRAPH_IMAGE_PATH, alpha=True, dpi=300)
     plt.show()
+
+################r###########################################################
+###########################################################################
+# Calculate properties of the uber travel data graph
+###########################################################################
+###########################################################################
+def calc_graph_properties():
+
+    # Load graph
+    FIn = snap.TFIn("Data/Geo/smaller.graph")
+    graph = snap.TNEANet.Load(FIn)
+
+    # Times of day
+    hours = range(24)
+
+    # Loop through each 
+
+
 
 ###########################################################################
 ###########################################################################
