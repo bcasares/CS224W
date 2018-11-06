@@ -140,7 +140,6 @@ def draw_map(filename, zone_filter=None, plot_centroids=False, plot_edges=False,
         for edge in graph.Edges():
             start = (lat_longs[edge.GetSrcNId()][0], lat_longs[edge.GetSrcNId()][1])
             end = (lat_longs[edge.GetDstNId()][0], lat_longs[edge.GetDstNId()][1])
-            print(start, end)
             ax.plot([start[0], end[0]], [start[1], end[1]], color='g', linewidth='1')
     # Plot centroids
     if plot_centroids:
@@ -321,7 +320,7 @@ def draw_graph(graph, filename, attributes=True):
     # New nx graph
     nx_graph = nx.Graph()
     for node in graph.Nodes():
-        nx_graph.add_node(node.GetId(), pos=(lat_longs[node.GetId()][1],lat_longs[node.GetId()][0]))
+        nx_graph.add_node(node.GetId(), pos=(lat_longs[node.GetId()][0],lat_longs[node.GetId()][1]))
     for edge in graph.Edges():
         if attributes:
             nameV = snap.TStrV()
@@ -373,24 +372,17 @@ def main():
         modify_distance_graph()
 
     # Step 3: Draw map using boundary data in .shp file and graph
-    if True:
+    if False:
         # Draw map with zones and centroids
-        draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
+        #draw_map(filename=MAP_IMAGE_PATH, plot_centroids=True)
         # Draw map with zones, centroids, and edges based on borders
-        FIn = snap.TFIn(BORDER_GRAPH_PATH)
-        graph = snap.TUNGraph.Load(FIn)
-        draw_map(filename=UBER_ZONE_BORDER_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
+        #FIn = snap.TFIn(BORDER_GRAPH_PATH)
+        #graph = snap.TUNGraph.Load(FIn)
+        #draw_map(filename=UBER_ZONE_BORDER_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
         # Draw map with zones, centroids, and edges based on trips
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
         draw_map(filename=FINAL_UBER_GRAPH_IMAGE_PATH, plot_centroids=True, plot_edges=True, graph=graph)
-
-    # Draw new map
-    if False:
-        draw_new_map()
-
-    if False:
-        modify()
 
     # Draw border uber graph (edges based on zone borders)
     if False:
@@ -400,7 +392,7 @@ def main():
         draw_graph(graph, UBER_ZONE_BORDER_IMAGE_PATH, attributes=False)
 
     # Draw final uber graph (edges based on trips)
-    if False:
+    if True:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
