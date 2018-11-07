@@ -35,13 +35,13 @@ FINAL_UBER_GRAPH_IMAGE_PATH = 'Data/Geo/Images/sf_uber_final_image.png'
 ###########################################################################
 ###########################################################################
 def calc_mile_distance(lat1, lon1, lat2, lon2):
-    # Convert decimal degrees to radians 
+    # Convert decimal degrees to radians
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    # Apply formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
+    # Apply formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
+    c = 2 * asin(sqrt(a))
     r = 3956 # Radius of earth in miles.
     return c * r
 
@@ -299,15 +299,23 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         # Scale weights so that largest is 50
         weights = {}
-        for i, row in zone_info.iterrows(): weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
+        for i, row in zone_info.iterrows():
+            try :
+                weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
+            except :
+                continue
         largest = max(weights.itervalues())**2
         for key in weights: weights[key] = (weights[key]**2 / largest) * 50
         # Plot
         lats, longs, scales = [], [], []
-        for i, row in zone_info.iterrows(): 
-            lats.append(row.latitude)
-            longs.append(row.longitude)
-            scales.append(weights[row.id])
+        for i, row in zone_info.iterrows():
+            try :
+                scales.append(weights[row.id])
+                lats.append(row.latitude)
+                longs.append(row.longitude)
+            except :
+                continue
+
         ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
     if plot_centroids and centroid_classes:
         print(centroid_classes)
@@ -315,7 +323,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         lats = []
         longs = []
         colors = []
-        for i, row in zone_info.iterrows(): 
+        for i, row in zone_info.iterrows():
             lats.append(row.latitude)
             longs.append(row.longitude)
             colors.append(centroid_classes[row.id])
@@ -323,7 +331,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
     # Plot centroids
     elif plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
-        for i, row in zone_info.iterrows(): 
+        for i, row in zone_info.iterrows():
             ax.scatter(row.latitude, row.longitude, color='r', s=20)
     ax.set_xticks([])
     ax.set_yticks([])
@@ -469,7 +477,7 @@ def main():
 
     # Step 7: Draw final uber graph (edges based on trips)
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
         draw_graph(graph, FINAL_UBER_GRAPH_IMAGE_PATH)
@@ -480,7 +488,7 @@ def main():
 
     # Compute / plot node degrees (sum of all adjacent edge weights)
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         # Compute node degree for various attributes
@@ -494,7 +502,7 @@ def main():
 
     # Compute average node degree over time
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         # Compute node degree for various attributes

@@ -5,8 +5,8 @@ import googlemaps
 import os
 import pandas as pd
 import snap
-import geo_data_setup as geo_data
 from tqdm import tqdm
+import metrics
 
 
 # GOOGLE_API_KEY = "AIzaSyAi5ERQfBOcdO54IT3MOmiCnNubFB1RWWY" # First Key, no-credit
@@ -16,9 +16,11 @@ GOOGLE_API_KEY = "AIzaSyD7_s0eA-M967PpPLQfu9sKwnkiNVSHoE8" #abecs224w3
 
 SF_ZONE_INFO = os.path.join("Data", "Geo", "sf_zone_info.csv")
 SF_REDUCED_GRAPH = os.path.join("Data", "Geo", "sf_uber_final_graph.graph")
-PUBLIC_TRANSIT_GRAPH_PATH = os.path.join("Data", "Geo", "public_transit.graph")
-PUBLIC_TRANSIT_GRAPH_PATH_TEMP = os.path.join("Data", "Geo", "public_transit_complete.graph")
-PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Images", "public_transit_graph.png")
+PUBLIC_TRANSIT_GRAPH_PATH_SAVE = os.path.join("Data", "Geo", "public_transit.graph")
+# PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "public_transit_complete.graph")
+PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "public_transit_reduced5pm.graph")
+PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Data", "Geo", "Images", "public_transit_graph_5pm.png")
+# PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Images", "public_transit_graph_reduced.png")
 
 class PublicTransport(object):
 
@@ -37,18 +39,18 @@ class PublicTransport(object):
         if check_attributes:
             self.checkAttributes()
 
-    def loadData(self):
+    def loadData(self, file_path=SF_ZONE_INFO):
         """
         Load Uber zone data from sf_zone_info.csv
         """
-        data = pd.read_csv(SF_ZONE_INFO)
+        data = pd.read_csv(file_path)
         def latLong(row):
             return str(row.longitude) + ", " + str(row.latitude)
             # return str(row.latitude) + ", " + str(row.longitude)
         data["lat_long"] = data.apply(latLong, axis = 1)
         return data
 
-    def loadGraph(self, create_new = False, to_print = True):
+    def loadGraph(self, file_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD, create_new=False, to_print=True):
         """
         Loads the graph if the graph already exists
         """
@@ -57,7 +59,7 @@ class PublicTransport(object):
             self.graph = snap.TNEANet.New()
         else:
             try :
-                FIn = snap.TFIn(PUBLIC_TRANSIT_GRAPH_PATH_TEMP)
+                FIn = snap.TFIn(file_path)
                 self.graph = snap.TNEANet.Load(FIn)
                 if to_print:
                     print "Number of nodes", self.graph.GetNodes()
@@ -67,21 +69,21 @@ class PublicTransport(object):
                     print("creating new graph")
                 self.graph = snap.TNEANet.New()
 
-    def saveGraph(self, i = 0, j = 0):
+    def saveGraph(self, file_path=PUBLIC_TRANSIT_GRAPH_PATH_SAVE, i = 0, j = 0):
         """
         Save graph and outputs the iteration number to a temp file.
         """
         print("saving graph", i, j)
-        FOut = snap.TFOut(PUBLIC_TRANSIT_GRAPH_PATH)
+        FOut = snap.TFOut(file_path)
         self.graph.Save(FOut)
         with open('temp.txt', 'w') as f:
             print >> f, 'i=', i, 'j=', j
 
-    def drawGraph(self):
-        geo_data.draw_graph(self.graph, PUBLIC_TRANSIT_GRAPH_PLOT)
+    def drawGraph(self, file_path=PUBLIC_TRANSIT_GRAPH_PLOT):
+        metrics.draw_graph(self.graph, file_path)
 
 
-    def checkAttributes(self, to_print=False):
+    def checkAttributes(self, to_print=True):
         distances_m = []
         times_s = []
         for edge in self.graph.Edges():
@@ -107,8 +109,8 @@ class PublicTransport(object):
             print "or", avg_time_h, "hours"
             print "The average speed is", avg_speed_miles_hour, "miles per hour"
 
-    def reduceGraph(self, to_print = True):
-        FIn = snap.TFIn(SF_REDUCED_GRAPH)
+    def reduceGraph(self, load_reduced_graph_path=SF_REDUCED_GRAPH, to_print = True):
+        FIn = snap.TFIn(load_reduced_graph_path)
         temp_graph = snap.TNEANet.Load(FIn)
         for edge in self.graph.Edges():
             if temp_graph.IsNode(edge.GetSrcNId()) and temp_graph.IsNode(edge.GetDstNId()):
@@ -122,7 +124,7 @@ class PublicTransport(object):
             print "Number of Nodes", self.graph.GetNodes()
             print "Number of Edges", self.graph.GetEdges()
 
-    def readGoogleMapsAndCreateGraphFromExsitingGraph(self, date_time = 'Nov 7 2018  5:00PM'):
+    def readGoogleMapsAndCreateGraphFromExsitingGraph(self, date_time='Nov 7 2018  5:00PM'):
         """
         Use Google API to compute travel time between the points for each time of day
         (using public transportation)
@@ -151,8 +153,8 @@ class PublicTransport(object):
                     self.addNodesAndEdgesPublicTransitGraph(row_1.id, row_2.id, edge_id, distance_meters, duration_seconds)
                     edge_id+=2
 
-                    if (count % 1000) == 0:
-                        self.saveGraph(count,count)
+                    if (count % 1000) == 0 :
+                        self.saveGraph(file_path=PUBLIC_TRANSIT_GRAPH_PATH_SAVE, i=count, j=count)
                     # print "_______________________________________________________"
                     # print row_1
                     # print row_2
@@ -167,7 +169,7 @@ class PublicTransport(object):
                     print ex
                     continue
 
-        self.saveGraph(count,count)
+        self.saveGraph(file_path=PUBLIC_TRANSIT_GRAPH_PATH_SAVE, i=count, j=count)
 
 
     def readGoogleMapsAndCreateGraph(self, date_time = 'Nov 7 2018  5:00PM'):
@@ -177,7 +179,6 @@ class PublicTransport(object):
         """
         gmaps = googlemaps.Client(key=GOOGLE_API_KEY)
 
-        # Request directions via public transit
         # now = datetime.now()
         now = datetime.strptime(date_time, '%b %d %Y %I:%M%p')
 
@@ -201,8 +202,7 @@ class PublicTransport(object):
                         edge_id+=2
 
                         if (count % 1000) == 0:
-                            continue
-                            # self.saveGraph(i,j)
+                            self.saveGraph(file_path=PUBLIC_TRANSIT_GRAPH_PATH_SAVE, i=count, j=count)
 
                         # print "_______________________________________________________"
                         # print(directions_result[0]['legs'][0]['distance']['text'])
@@ -216,7 +216,7 @@ class PublicTransport(object):
                         print ex
                         continue
 
-        self.saveGraph(i,j)
+        self.saveGraph(file_path=PUBLIC_TRANSIT_GRAPH_PATH_SAVE, i=count, j=count)
 
 
     def addNodesAndEdgesPublicTransitGraph(self, zone1_id, zone2_id, edge_id, distance_meters, duration_seconds, to_print = False):
@@ -240,4 +240,6 @@ class PublicTransport(object):
             print('Number of edges (zone borders): %d' % num_edges)
 
 if __name__ == "__main__":
-    PublicTransport(create_new=False, read_google_maps=True, plot_graph=False, check_attributes=False, reduce_graph=True)
+    # PublicTransport(create_new=False, read_google_maps=False, plot_graph=Float, check_attributes=True, reduce_graph=False)
+    metrics.computePlotNodeDegreesPublicTransit(file_path_graph=PUBLIC_TRANSIT_GRAPH_PATH_LOAD, attributes=["distance_meters", "duration_seconds"])
+
