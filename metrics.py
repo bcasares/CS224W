@@ -51,6 +51,12 @@ def find_clusters(X, n_clusters, rseed=2):
 
     return centers, labels
 
+###########################################################################
+###########################################################################
+# Compute and plot node degrees
+###########################################################################
+###########################################################################
+
 def computePlotNodeDegrees(file_path_graph=FINAL_UBER_GRAPH_PATH, attributes=['travel_time', 'travel_speed']):
     # Compute / plot node degrees (sum of all adjacent edge weights)
     # Load graph
@@ -79,6 +85,50 @@ def computePlotNodeDegreesPublicTransit(file_path_graph, attributes):
 
 ###########################################################################
 ###########################################################################
+# Plot degree distribution
+###########################################################################
+###########################################################################
+def plotDegreeDistribution(original_graph, attribute, type_graph = "google"):
+
+    graph = compute_node_degree(original_graph, attribute)
+    weights = []
+    for node in graph.Nodes():
+        weight = graph.GetFltAttrDatE(node.GetId(), "weight")
+        weights.append(weight)
+
+    graph = compute_node_degree(original_graph, attribute)
+    weights = []
+    for node in graph.Nodes():
+        weight = graph.GetFltAttrDatE(node.GetId(), "weight")
+        weights.append(weight)
+
+
+    # Create some example data
+
+    # Usual histogram plot
+    # Scatter plot
+    # Now we find the center of each bin from the bin edges
+    plt.figure()
+    n, bins, patches = plt.hist(weights, bins=100)  # output is two arrays
+    bins_mean = [0.5 * (bins[i] + bins[i+1]) for i in range(len(n))]
+
+    plt.figure()
+    plt.scatter(bins_mean, n, label="Degree distribution for " +type_graph + " " + attribute)
+    # plt.xscale('log')
+    # plt.yscale('log')
+
+
+    plt.hist(weights, bins=50, log=True)
+    plt.xlabel('Node Degree (log)')
+    plt.ylabel('# Nodes with a Given Degree (log)')
+    plt.title('Degree Distribution ')
+    plt.legend()
+    plt.grid(which='both', axis='both')
+    plt.savefig("Data/Geo/Images/degree_distribution_"+type_graph+"_"+attribute+".png")
+    plt.show()
+
+###########################################################################
+###########################################################################
 # Main function
 ###########################################################################
 ###########################################################################
@@ -89,7 +139,7 @@ def main():
         computePlotNodeDegrees(file_path_graph=FINAL_UBER_GRAPH_PATH, attributes=['travel_time', 'travel_speed'])
 
     # [Google] Compute / plot node degrees (sum of all adjacent edge weights)
-    if True:
+    if False:
         computePlotNodeDegreesPublicTransit(file_path_graph=FINAL_GOOGLE_GRAPH_PATH, attributes=['distance_meters', 'duration_seconds'])
 
     # Compute average node degree over time

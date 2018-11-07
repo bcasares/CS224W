@@ -240,6 +240,10 @@ class PublicTransport(object):
             print('Number of edges (zone borders): %d' % num_edges)
 
 if __name__ == "__main__":
-    # PublicTransport(create_new=False, read_google_maps=False, plot_graph=Float, check_attributes=True, reduce_graph=False)
-    metrics.computePlotNodeDegreesPublicTransit(file_path_graph=PUBLIC_TRANSIT_GRAPH_PATH_LOAD, attributes=["distance_meters", "duration_seconds"])
+    public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
+    metrics.plotDegreeDistribution(original_graph=public_transport.graph, attribute="duration_seconds", type_graph="public transit")
+    uber_graph = metrics.load_graph()
+    metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_time_17", type_graph="uber")
+    metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_speed_17", type_graph="uber")
+
 
