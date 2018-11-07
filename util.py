@@ -421,68 +421,6 @@ def compute_node_degree(original_graph, attribute, average=False, only_zone_neig
                 edge_id = graph.GetEI(node_id, neighbor_id).GetId()
                 weight = graph.GetFltAttrDatE(edge_id, 'weight')
                 if weight > 0: degree += weight # For some reason a few weights are -inf
-                print(weight)
-        # If doing avg degree
-        if average: degree /= num_out_nodes
-        graph.AddFltAttrDatN(node_id, degree, 'weight')
-
-    # Return
-    return graph
-
-################r###########################################################
-###########################################################################
-# Build new graph with edges having only a single attribute
-###########################################################################
-###########################################################################
-def build_single_weight_graph(original_graph, attribute):
-
-    # Initialize new graph
-    graph = snap.TNEANet.New()
-
-    # Add nodes
-    for node in original_graph.Nodes():
-        graph.AddNode(node.GetId())
-    num_nodes = graph.GetNodes()
-
-    # Add edges
-    for edge in original_graph.Edges():
-        src, dst, edge_id = edge.GetSrcNId(), edge.GetDstNId(), edge.GetId()
-        graph.AddEdge(src, dst, edge_id)
-        weight = original_graph.GetFltAttrDatE(edge_id, attribute)
-        graph.AddFltAttrDatE(edge_id, weight, 'weight')
-
-    # Print num nodes and edges
-    #print('[Original] Num nodes: %d, Num edges: %d' % (original_graph.GetNodes(), original_graph.GetEdges()))
-    #print('[New] Num nodes: %d, Num edges: %d' % (graph.GetNodes(), graph.GetEdges()))
-
-    # Return
-    return graph
-
-################r###########################################################
-###########################################################################
-# Build new graph with edges having only a single attribute
-###########################################################################
-###########################################################################
-def compute_node_degree(original_graph, attribute, average=False, only_zone_neighbors=False, zone_neighbor_graph=None):
-
-    # Create new graph using desired attribute
-    graph = build_single_weight_graph(original_graph, attribute)
-
-    # Loop through all nodes, add attribute to each that is the sum of all adjacent edge weights
-    for node in graph.Nodes():
-        node_id, num_out_nodes = node.GetId(), node.GetOutDeg()
-        degree = 0
-        for i in range(num_out_nodes):
-            neighbor_id = node.GetOutNId(i)
-            # If we only want to consider neighboring zones
-            if only_zone_neighbors and zone_neighbor_graph: include = zone_neighbor_graph.IsEdge(node_id, neighbor_id)
-            # Else include everything
-            else: include = True
-            # Add to total degree
-            if include:
-                edge_id = graph.GetEI(node_id, neighbor_id).GetId()
-                weight = graph.GetFltAttrDatE(edge_id, 'weight')
-                if weight > 0: degree += weight # For some reason a few weights are -inf
         # If doing avg degree
         if average: degree /= num_out_nodes
         graph.AddFltAttrDatN(node_id, degree, 'weight')
@@ -581,13 +519,6 @@ def main():
             plt.ylabel('Average ' + ' '.join(attribute.split('_')[:2]) + '(' + label + ')')
             plt.title('Average ' + ' '.join(attribute.split('_')[:2]) + ' by Hour of Day')
             plt.savefig('Data/Geo/Images/' + attribute + '_avg_by_hour')
-
-    # TESTING
-    if False:
-        # Load graph 
-        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
-        original_graph = snap.TNEANet.Load(FIn)
-        new_graph = compute_node_degree(original_graph, 'travel_speed_12')
 
 if __name__ == "__main__":
     main()
