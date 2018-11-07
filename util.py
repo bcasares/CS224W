@@ -23,6 +23,7 @@ BORDER_GRAPH_PATH = 'Data/Geo/Graphs/sf_geoboundaries_borders.graph'
 DISTANCE_GRAPH_PATH = 'Data/Geo/Graphs/sf_geoboundaries_distances.graph'
 INTERMEDIATE_UBER_GRAPH_PATH = 'Data/Geo/Graphs/sf_uber_intermediate_graph.graph'
 FINAL_UBER_GRAPH_PATH = 'Data/Geo/Graphs/sf_uber_final_graph.graph'
+FINAL_GOOGLE_GRAPH_PATH = 'Data/Geo/Graphs/public_transit_reduced5pm.graph'
 
 # Output images
 MAP_IMAGE_PATH = 'Data/Geo/Images/sf_geoboundaries.png'
@@ -35,13 +36,13 @@ FINAL_UBER_GRAPH_IMAGE_PATH = 'Data/Geo/Images/sf_uber_final_image.png'
 ###########################################################################
 ###########################################################################
 def calc_mile_distance(lat1, lon1, lat2, lon2):
-    # Convert decimal degrees to radians 
+    # Convert decimal degrees to radians
     lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    # Apply formula 
-    dlon = lon2 - lon1 
-    dlat = lat2 - lat1 
+    # Apply formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
     a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a)) 
+    c = 2 * asin(sqrt(a))
     r = 3956 # Radius of earth in miles.
     return c * r
 
@@ -299,23 +300,31 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         # Scale weights so that largest is 50
         weights = {}
-        for i, row in zone_info.iterrows(): weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
-        largest = max(weights.itervalues())
-        for key in weights: weights[key] = (weights[key] / largest) * 50
+        for i, row in zone_info.iterrows():
+            try:
+                weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
+            except:
+                continue
+        largest = max(weights.itervalues())**2
+        for key in weights: weights[key] = (weights[key]**2 / largest) * 50
         # Plot
         lats, longs, scales = [], [], []
-        for i, row in zone_info.iterrows(): 
-            lats.append(row.latitude)
-            longs.append(row.longitude)
-            scales.append(weights[row.id])
-        ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('plasma'))
-    if plot_centroids and centroid_classes:
+        for i, row in zone_info.iterrows():
+            try:
+                scales.append(weights[row.id])
+                lats.append(row.latitude)
+                longs.append(row.longitude)
+            except:
+                continue
+        vis = ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
+        fig.colorbar(vis)
+    elif plot_centroids and centroid_classes:
         print(centroid_classes)
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         lats = []
         longs = []
         colors = []
-        for i, row in zone_info.iterrows(): 
+        for i, row in zone_info.iterrows():
             lats.append(row.latitude)
             longs.append(row.longitude)
             colors.append(centroid_classes[row.id])
@@ -323,7 +332,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
     # Plot centroids
     elif plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
-        for i, row in zone_info.iterrows(): 
+        for i, row in zone_info.iterrows():
             ax.scatter(row.latitude, row.longitude, color='r', s=20)
     #plot centrality
     elif plot_centrality:
@@ -438,68 +447,6 @@ def compute_node_degree(original_graph, attribute, average=False, only_zone_neig
                 edge_id = graph.GetEI(node_id, neighbor_id).GetId()
                 weight = graph.GetFltAttrDatE(edge_id, 'weight')
                 if weight > 0: degree += weight # For some reason a few weights are -inf
-                print(weight)
-        # If doing avg degree
-        if average: degree /= num_out_nodes
-        graph.AddFltAttrDatN(node_id, degree, 'weight')
-
-    # Return
-    return graph
-
-################r###########################################################
-###########################################################################
-# Build new graph with edges having only a single attribute
-###########################################################################
-###########################################################################
-def build_single_weight_graph(original_graph, attribute):
-
-    # Initialize new graph
-    graph = snap.TNEANet.New()
-
-    # Add nodes
-    for node in original_graph.Nodes():
-        graph.AddNode(node.GetId())
-    num_nodes = graph.GetNodes()
-
-    # Add edges
-    for edge in original_graph.Edges():
-        src, dst, edge_id = edge.GetSrcNId(), edge.GetDstNId(), edge.GetId()
-        graph.AddEdge(src, dst, edge_id)
-        weight = original_graph.GetFltAttrDatE(edge_id, attribute)
-        graph.AddFltAttrDatE(edge_id, weight, 'weight')
-
-    # Print num nodes and edges
-    #print('[Original] Num nodes: %d, Num edges: %d' % (original_graph.GetNodes(), original_graph.GetEdges()))
-    #print('[New] Num nodes: %d, Num edges: %d' % (graph.GetNodes(), graph.GetEdges()))
-
-    # Return
-    return graph
-
-################r###########################################################
-###########################################################################
-# Build new graph with edges having only a single attribute
-###########################################################################
-###########################################################################
-def compute_node_degree(original_graph, attribute, average=False, only_zone_neighbors=False, zone_neighbor_graph=None):
-
-    # Create new graph using desired attribute
-    graph = build_single_weight_graph(original_graph, attribute)
-
-    # Loop through all nodes, add attribute to each that is the sum of all adjacent edge weights
-    for node in graph.Nodes():
-        node_id, num_out_nodes = node.GetId(), node.GetOutDeg()
-        degree = 0
-        for i in range(num_out_nodes):
-            neighbor_id = node.GetOutNId(i)
-            # If we only want to consider neighboring zones
-            if only_zone_neighbors and zone_neighbor_graph: include = zone_neighbor_graph.IsEdge(node_id, neighbor_id)
-            # Else include everything
-            else: include = True
-            # Add to total degree
-            if include:
-                edge_id = graph.GetEI(node_id, neighbor_id).GetId()
-                weight = graph.GetFltAttrDatE(edge_id, 'weight')
-                if weight > 0: degree += weight # For some reason a few weights are -inf
         # If doing avg degree
         if average: degree /= num_out_nodes
         graph.AddFltAttrDatN(node_id, degree, 'weight')
@@ -548,7 +495,7 @@ def main():
 
     # Step 7: Draw final uber graph (edges based on trips)
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         graph = snap.TNEANet.Load(FIn)
         draw_graph(graph, FINAL_UBER_GRAPH_IMAGE_PATH)
@@ -564,7 +511,7 @@ def main():
 
     # Compute / plot node degrees (sum of all adjacent edge weights)
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         # Compute node degree for various attributes
@@ -578,7 +525,7 @@ def main():
 
     # Compute average node degree over time
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         # Compute node degree for various attributes
@@ -603,13 +550,6 @@ def main():
             plt.ylabel('Average ' + ' '.join(attribute.split('_')[:2]) + '(' + label + ')')
             plt.title('Average ' + ' '.join(attribute.split('_')[:2]) + ' by Hour of Day')
             plt.savefig('Data/Geo/Images/' + attribute + '_avg_by_hour')
-
-    # TESTING
-    if False:
-        # Load graph 
-        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
-        original_graph = snap.TNEANet.Load(FIn)
-        new_graph = compute_node_degree(original_graph, 'travel_speed_12')
 
 if __name__ == "__main__":
     main()
