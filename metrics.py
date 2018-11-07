@@ -62,7 +62,7 @@ def computePlotNodeDegrees(file_path_graph=FINAL_UBER_GRAPH_PATH, attributes=['t
             attribute_hour = attribute + '_' + str(hour)
             new_graph = compute_node_degree(original_graph, attribute_hour)
             # Plot
-            draw_map('Data/Geo/Images/%s_new/%s.png'%(attribute, attribute_hour), \
+            draw_map('Data/Geo/Images/uber_%s/%s.png'%(attribute, attribute_hour), \
                         plot_centroids=True, scale_centroids=True, graph=new_graph)
 
 def computePlotNodeDegreesPublicTransit(file_path_graph, attributes):
