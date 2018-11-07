@@ -1,15 +1,3 @@
-import json
-from shapely.geometry import mapping, shape, Polygon, MultiPolygon, Point
-import fiona
-import csv
-import itertools
-import matplotlib.pyplot as plt
-from matplotlib.collections import PatchCollection
-from descartes import PolygonPatch
-import snap
-from math import radians, cos, sin, asin, sqrt
-import networkx as nx
-import pandas as pd
 from util import *
 
 # Source files / other
