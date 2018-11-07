@@ -303,8 +303,12 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         largest = max(weights.itervalues())
         for key in weights: weights[key] = (weights[key] / largest) * 50
         # Plot
+        lats, longs, scales = [], [], []
         for i, row in zone_info.iterrows(): 
-            ax.scatter(row.latitude, row.longitude, s=weights[row.id], c=weights[row.id], cmap=plt.cm.get_cmap('autumn'))
+            lats.append(row.latitude)
+            longs.append(row.longitude)
+            scales.append(weights[row.id])
+        ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('plasma'))
     # Plot centroids
     elif plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)

@@ -22,7 +22,7 @@ def main():
                         plot_centroids=True, scale_centroids=True, graph=new_graph)
 
     # Compute average node degree over time
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
