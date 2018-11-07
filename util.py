@@ -205,7 +205,7 @@ def create_distance_graph(data):
 # Remove edges without time attributes
 ###########################################################################
 ###########################################################################
-def modify_distance_graph():
+def modify_distance_graph(): # sec * (1 min / 60 sec) * (60 min / 1 hr)
 
     # Load graph
     FIn = snap.TFIn(DISTANCE_GRAPH_PATH)
@@ -225,10 +225,10 @@ def modify_distance_graph():
                 graph.AddFltAttrDatE(edge_itr, float(mean_travel_time), 'travel_time_'+str(hour_of_day))
                 # Add speed attribute
                 distance = graph.GetFltAttrDatE(edge_itr.GetId(), 'distance')
-                speed = 60 * distance/float(mean_travel_time) #in miles per hour
+                speed = (distance / float(mean_travel_time)) * 3600.0 # in miles per hour
                 graph.AddFltAttrDatE(edge_itr, speed, 'travel_speed_'+str(hour_of_day))
-            except:
-                #print("Failed")
+            except Exception as e:
+                #print(e)
                 continue
 
     # Print number of edges, save intermediate state
@@ -269,7 +269,7 @@ def modify_distance_graph():
 # Plot and save a map using data from .shp file
 ###########################################################################
 ###########################################################################
-def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None):
+def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None, centroid_classes=False):
     # Extract polygons
     polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
     # Setup plot
@@ -300,11 +300,26 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         # Scale weights so that largest is 50
         weights = {}
         for i, row in zone_info.iterrows(): weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
-        largest = max(weights.itervalues())
-        for key in weights: weights[key] = (weights[key] / largest) * 50
+        largest = max(weights.itervalues())**2
+        for key in weights: weights[key] = (weights[key]**2 / largest) * 50
         # Plot
+        lats, longs, scales = [], [], []
         for i, row in zone_info.iterrows(): 
-            ax.scatter(row.latitude, row.longitude, s=weights[row.id], c=weights[row.id]/50, cmap=plt.cm.get_cmap('autumn'))
+            lats.append(row.latitude)
+            longs.append(row.longitude)
+            scales.append(weights[row.id])
+        ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
+    if plot_centroids and centroid_classes:
+        print(centroid_classes)
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        lats = []
+        longs = []
+        colors = []
+        for i, row in zone_info.iterrows(): 
+            lats.append(row.latitude)
+            longs.append(row.longitude)
+            colors.append(centroid_classes[row.id])
+        ax.scatter(lats, longs, c=colors, cmap='viridis')
     # Plot centroids
     elif plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
@@ -406,6 +421,68 @@ def compute_node_degree(original_graph, attribute, average=False, only_zone_neig
                 edge_id = graph.GetEI(node_id, neighbor_id).GetId()
                 weight = graph.GetFltAttrDatE(edge_id, 'weight')
                 if weight > 0: degree += weight # For some reason a few weights are -inf
+                print(weight)
+        # If doing avg degree
+        if average: degree /= num_out_nodes
+        graph.AddFltAttrDatN(node_id, degree, 'weight')
+
+    # Return
+    return graph
+
+################r###########################################################
+###########################################################################
+# Build new graph with edges having only a single attribute
+###########################################################################
+###########################################################################
+def build_single_weight_graph(original_graph, attribute):
+
+    # Initialize new graph
+    graph = snap.TNEANet.New()
+
+    # Add nodes
+    for node in original_graph.Nodes():
+        graph.AddNode(node.GetId())
+    num_nodes = graph.GetNodes()
+
+    # Add edges
+    for edge in original_graph.Edges():
+        src, dst, edge_id = edge.GetSrcNId(), edge.GetDstNId(), edge.GetId()
+        graph.AddEdge(src, dst, edge_id)
+        weight = original_graph.GetFltAttrDatE(edge_id, attribute)
+        graph.AddFltAttrDatE(edge_id, weight, 'weight')
+
+    # Print num nodes and edges
+    #print('[Original] Num nodes: %d, Num edges: %d' % (original_graph.GetNodes(), original_graph.GetEdges()))
+    #print('[New] Num nodes: %d, Num edges: %d' % (graph.GetNodes(), graph.GetEdges()))
+
+    # Return
+    return graph
+
+################r###########################################################
+###########################################################################
+# Build new graph with edges having only a single attribute
+###########################################################################
+###########################################################################
+def compute_node_degree(original_graph, attribute, average=False, only_zone_neighbors=False, zone_neighbor_graph=None):
+
+    # Create new graph using desired attribute
+    graph = build_single_weight_graph(original_graph, attribute)
+
+    # Loop through all nodes, add attribute to each that is the sum of all adjacent edge weights
+    for node in graph.Nodes():
+        node_id, num_out_nodes = node.GetId(), node.GetOutDeg()
+        degree = 0
+        for i in range(num_out_nodes):
+            neighbor_id = node.GetOutNId(i)
+            # If we only want to consider neighboring zones
+            if only_zone_neighbors and zone_neighbor_graph: include = zone_neighbor_graph.IsEdge(node_id, neighbor_id)
+            # Else include everything
+            else: include = True
+            # Add to total degree
+            if include:
+                edge_id = graph.GetEI(node_id, neighbor_id).GetId()
+                weight = graph.GetFltAttrDatE(edge_id, 'weight')
+                if weight > 0: degree += weight # For some reason a few weights are -inf
         # If doing avg degree
         if average: degree /= num_out_nodes
         graph.AddFltAttrDatN(node_id, degree, 'weight')
@@ -440,7 +517,7 @@ def main():
         create_distance_graph(data)
 
     # Step 5: Add time / speed attributes to graph, remove unncesseary edges and nodes
-    if False:
+    if True:
         modify_distance_graph()
 
     # Step 6: Draw map using boundary data in .shp file and graph
@@ -478,7 +555,7 @@ def main():
                         plot_centroids=True, scale_centroids=True, graph=new_graph)
 
     # Compute average node degree over time
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
@@ -504,6 +581,13 @@ def main():
             plt.ylabel('Average ' + ' '.join(attribute.split('_')[:2]) + '(' + label + ')')
             plt.title('Average ' + ' '.join(attribute.split('_')[:2]) + ' by Hour of Day')
             plt.savefig('Data/Geo/Images/' + attribute + '_avg_by_hour')
+
+    # TESTING
+    if False:
+        # Load graph 
+        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
+        original_graph = snap.TNEANet.Load(FIn)
+        new_graph = compute_node_degree(original_graph, 'travel_speed_12')
 
 if __name__ == "__main__":
     main()
