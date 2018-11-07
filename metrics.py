@@ -24,7 +24,7 @@ def get_edge_weights(original_graph, attribute):
             neighbor_id = node.GetOutNId(i)
             edge_id = graph.GetEI(node_id, neighbor_id).GetId()
             weight = graph.GetFltAttrDatE(edge_id, 'weight')
-            if weight > 0: 
+            if weight > 0:
                 edgeWeights[node_id].append(weight) # For some reason a few weights are -inf
 
     # Return
@@ -35,21 +35,47 @@ def find_clusters(X, n_clusters, rseed=2):
     rng = np.random.RandomState(rseed)
     i = rng.permutation(X.shape[0])[:n_clusters]
     centers = X[i]
-    
+
     while True:
         # 2a. Assign labels based on closest center
         labels = pairwise_distances_argmin(X, centers, metric=wasserstein_distance)
-        
+
         # 2b. Find new centers from means of points
         new_centers = np.array([X[labels == i].mean(0)
                                 for i in range(n_clusters)])
-        
+
         # 2c. Check for convergence
         if np.all(centers == new_centers):
             break
         centers = new_centers
-    
+
     return centers, labels
+
+def computePlotNodeDegrees(file_path_graph=FINAL_UBER_GRAPH_PATH, attributes=['travel_time', 'travel_speed']):
+    # Compute / plot node degrees (sum of all adjacent edge weights)
+    # Load graph
+    FIn = snap.TFIn(file_path_graph)
+    original_graph = snap.TNEANet.Load(FIn)
+    # Compute node degree for various attributes
+    for attribute in attributes:
+        for hour in range(24):
+            attribute_hour = attribute + '_' + str(hour)
+            new_graph = compute_node_degree(original_graph, attribute_hour)
+            # Plot
+            draw_map('Data/Geo/Images/%s_new/%s.png'%(attribute, attribute_hour), \
+                        plot_centroids=True, scale_centroids=True, graph=new_graph)
+
+def computePlotNodeDegreesPublicTransit(file_path_graph, attributes):
+    # Compute / plot node degrees (sum of all adjacent edge weights)
+    # Load graph
+    FIn = snap.TFIn(file_path_graph)
+    original_graph = snap.TNEANet.Load(FIn)
+    # Compute node degree for various attributes
+    for attribute in attributes:
+        new_graph = compute_node_degree(original_graph, attribute)
+        # Plot
+        draw_map('Data/Geo/Images/PublicTransit_%s.png'%(attribute), \
+                    plot_centroids=True, scale_centroids=True, graph=new_graph)
 
 ###########################################################################
 ###########################################################################
@@ -58,27 +84,17 @@ def find_clusters(X, n_clusters, rseed=2):
 ###########################################################################
 def main():
 
-    # Compute / plot node degrees (sum of all adjacent edge weights)
+    # [Uber] Compute / plot node degrees (sum of all adjacent edge weights)
+    if False:
+        computePlotNodeDegrees(file_path_graph=FINAL_UBER_GRAPH_PATH, attributes=['travel_time', 'travel_speed'])
+
+    # [Google] Compute / plot node degrees (sum of all adjacent edge weights)
     if True:
-        # Load graph 
-        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
-        original_graph = snap.TNEANet.Load(FIn)
-        print('Nodes: %d' % original_graph.GetNodes())
-        print('Edges: %d' % original_graph.GetEdges())
-        sys.exit(1)
-        # Compute node degree for various attributes
-        attributes = ['travel_time', 'travel_speed']
-        for attribute in attributes:
-            for hour in range(24):
-                attribute_hour = attribute + '_' + str(hour)
-                new_graph = compute_node_degree(original_graph, attribute_hour)
-                # Plot
-                draw_map('Data/Geo/Images/%s/%s.png'%(attribute, attribute_hour), \
-                            plot_centroids=True, scale_centroids=True, graph=new_graph)
+        computePlotNodeDegreesPublicTransit(file_path_graph=FINAL_GOOGLE_GRAPH_PATH, attributes=['distance_meters', 'duration_seconds'])
 
     # Compute average node degree over time
     if False:
-        # Load graph 
+        # Load graph
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         # Compute node degree for various attributes
