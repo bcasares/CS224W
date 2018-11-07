@@ -269,7 +269,7 @@ def modify_distance_graph(): # sec * (1 min / 60 sec) * (60 min / 1 hr)
 # Plot and save a map using data from .shp file
 ###########################################################################
 ###########################################################################
-def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None):
+def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None, centroid_classes=False):
     # Extract polygons
     polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
     # Setup plot
@@ -305,6 +305,17 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         # Plot
         for i, row in zone_info.iterrows(): 
             ax.scatter(row.latitude, row.longitude, s=weights[row.id], c=weights[row.id]/50, cmap=plt.cm.get_cmap('autumn'))
+    if plot_centroids and centroid_classes:
+        print(centroid_classes)
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        lats = []
+        longs = []
+        colors = []
+        for i, row in zone_info.iterrows(): 
+            lats.append(row.latitude)
+            longs.append(row.longitude)
+            colors.append(centroid_classes[row.id])
+        ax.scatter(lats, longs, c=colors, cmap='viridis')
     # Plot centroids
     elif plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
