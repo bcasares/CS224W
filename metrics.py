@@ -1,6 +1,4 @@
 from util import *
-
-<<<<<<< HEAD
 from collections import defaultdict
 import numpy as np
 from sklearn.metrics import pairwise_distances_argmin
@@ -134,13 +132,65 @@ def find_clusters(X, n_clusters, rseed=2):
 
 ###########################################################################
 ###########################################################################
+#Compute the length of the shortest path from source node to each node in the graph
+###########################################################################
+###########################################################################
+def dijkstra(graph, source):
+    numNodes = graph.GetNodes()
+    nodeIds = [node.GetId() for node in graph.Nodes()]
+    unvisited = set(range(numNodes))
+    distances = [float('inf') for i in range(numNodes)]
+    distances[source] = 0
+    prev = [-1 for i in range(numNodes)]
+    while len(unvisited) > 0:
+        minVal = float('inf')
+        minIndex = -1
+        for v in unvisited:
+            if distances[v] < minVal:
+                minVal = distances[v]
+                minIndex = v
+        cur = minIndex
+        unvisited.remove(cur)
+        curNode = graph.GetNI(nodeIds[cur])
+        # print(cur)
+        for i in range(curNode.GetOutDeg()):
+            # print("Exploring neighbor " +  str(i))
+            neighborID = curNode.GetOutNId(i)
+            neighborIndex = nodeIds.index(neighborID)
+            edge = graph.GetEI(nodeIds[cur], neighborID)
+            edgeWeight = graph.GetFltAttrDatE(edge.GetId(), 'weight')
+            if edgeWeight < 0:
+                continue
+            # print("Edge weight is " + str(edgeWeight))
+            alt = distances[cur] + edgeWeight
+            # print("Alt is " + str(alt))
+            if alt < distances[neighborIndex]:
+                distances[neighborIndex] = alt
+                prev[neighborIndex] = cur
+
+    return distances, prev        
+
+###########################################################################
+###########################################################################
+# Compute graph eigenvector centrality and plot it
+###########################################################################
+###########################################################################
+
+def compute_centrality(graph):
+    nx_graph = create_nx_graph(graph)
+    centrality = nx.eigenvector_centrality(nx_graph, weight='weight')
+    draw_map('node_centrality', plot_centrality=centrality)
+
+###########################################################################
+###########################################################################
+
 # Main function
 ###########################################################################
 ###########################################################################
 def main():
 
     # Compute / plot node degrees (sum of all adjacent edge weights)
-    if True:
+    if False:
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
@@ -193,9 +243,11 @@ def main():
         plt.title('Avg Travel Time vs. Avg Travel Speed for Each Hour of Day')
         plt.savefig('Data/Geo/Images/uber_avg_time_vs_avg_speed.png', dpi=300)
 
-    if True:
-        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
-        original_graph = snap.TNEANet.Load(FIn)
+    FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
+    original_graph = snap.TNEANet.Load(FIn)
+
+    #Find node strucural roles
+    if False:
         edgeWeightDistributions = []
         attributes = ['travel_time_12']
         for attribute in attributes:
@@ -211,11 +263,19 @@ def main():
                 edgeWeightHistograms[node] = list(histo[0])
 
             nodes, histograms = zip(*edgeWeightHistograms.iteritems())
-            centers, labels = find_clusters(np.array(histograms), 3)
+            centers, labels = find_clusters(np.array(histograms), 5)
             node_roles = dict(zip(nodes, labels))
             draw_map(attribute+'_node_roles', plot_centroids=True, centroid_classes=node_roles)
 
+    #Shortest distance path
+    if False:
+        graph = build_single_weight_graph(original_graph, 'travel_time_18')
+        distances, prev = dijkstra(graph, 1)
+        print(distances)
 
+    #Eigenvector centrality
+    if True:
+        compute_centrality(original_graph)
 
 
 if __name__ == "__main__":

@@ -269,7 +269,7 @@ def modify_distance_graph(): # sec * (1 min / 60 sec) * (60 min / 1 hr)
 # Plot and save a map using data from .shp file
 ###########################################################################
 ###########################################################################
-def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None, centroid_classes=False):
+def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=False, graph=None, centroid_classes=False, plot_centrality=False):
     # Extract polygons
     polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
     # Setup plot
@@ -325,6 +325,16 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         for i, row in zone_info.iterrows(): 
             ax.scatter(row.latitude, row.longitude, color='r', s=20)
+    #plot centrality
+    elif plot_centrality:
+        zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
+        lats, longs, centrality = [], [], []
+        for i, row in zone_info.iterrows(): 
+            lats.append(row.latitude)
+            longs.append(row.longitude)
+            centrality.append(plot_centrality[row.id])
+        ax.scatter(lats, longs, c=centrality, cmap=plt.cm.get_cmap('Wistia'))
+
     ax.set_xticks([])
     ax.set_yticks([])
     plt.savefig(filename, alpha=True, dpi=300)
@@ -332,11 +342,10 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
 
 ################r###########################################################
 ###########################################################################
-# Draw the uber travel data graph
+# Create networkx graph from a snap graph
 ###########################################################################
 ###########################################################################
-def draw_graph(graph, filename, attributes=True):
-
+def create_nx_graph(graph, attributes=True):
     # Load zone info
     zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
     lat_longs = {}
@@ -360,12 +369,20 @@ def draw_graph(graph, filename, attributes=True):
         else:
             nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
 
-    pos = nx.get_node_attributes(nx_graph, 'pos')
+    return nx_graph
 
+################r###########################################################
+###########################################################################
+# Draw the uber travel data graph
+###########################################################################
+###########################################################################
+def draw_graph(graph, filename, attributes=True):
+    nx_graph = create_nx_graph(graph, attributes)
+    pos = nx.get_node_attributes(nx_graph, 'pos')
     plt.figure(figsize=(7,12))
     nx.draw(nx_graph, pos, node_size=1)
     plt.savefig(filename)
-    #plt.show()
+    plt.show()
 
 ################r###########################################################
 ###########################################################################
@@ -517,7 +534,7 @@ def main():
         create_distance_graph(data)
 
     # Step 5: Add time / speed attributes to graph, remove unncesseary edges and nodes
-    if True:
+    if False:
         modify_distance_graph()
 
     # Step 6: Draw map using boundary data in .shp file and graph
@@ -539,6 +556,11 @@ def main():
     ###########################################################################################
     # Experiments
     ###########################################################################################
+
+    if True:
+        FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
+        graph = snap.TNEANet.Load(FIn)
+        draw_graph(graph, FINAL_UBER_GRAPH_IMAGE_PATH)
 
     # Compute / plot node degrees (sum of all adjacent edge weights)
     if False:
