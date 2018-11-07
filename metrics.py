@@ -13,13 +13,14 @@ def main():
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         # Compute node degree for various attributes
-        attributes = ['travel_time_6', 'travel_time_12', 'travel_time_18', \
-                        'travel_speed_6', 'travel_speed_12', 'travel_speed_18']
+        attributes = ['travel_time', 'travel_speed']
         for attribute in attributes:
-            new_graph = compute_node_degree(original_graph, attribute)
-            # Plot
-            draw_map('Data/Geo/Images/node_degree_'+attribute+'.png', \
-                        plot_centroids=True, scale_centroids=True, graph=new_graph)
+            for hour in range(24):
+                attribute_hour = attribute + '_' + str(hour)
+                new_graph = compute_node_degree(original_graph, attribute_hour)
+                # Plot
+                draw_map('Data/Geo/Images/%s/%s.png'%(attribute, attribute_hour), \
+                            plot_centroids=True, scale_centroids=True, graph=new_graph)
 
     # Compute average node degree over time
     if False:

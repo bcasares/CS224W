@@ -300,15 +300,15 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         # Scale weights so that largest is 50
         weights = {}
         for i, row in zone_info.iterrows(): weights[row.id] = graph.GetFltAttrDatN(int(row.id), 'weight')
-        largest = max(weights.itervalues())
-        for key in weights: weights[key] = (weights[key] / largest) * 50
+        largest = max(weights.itervalues())**2
+        for key in weights: weights[key] = (weights[key]**2 / largest) * 50
         # Plot
         lats, longs, scales = [], [], []
         for i, row in zone_info.iterrows(): 
             lats.append(row.latitude)
             longs.append(row.longitude)
             scales.append(weights[row.id])
-        ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('plasma'))
+        ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
     # Plot centroids
     elif plot_centroids:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
