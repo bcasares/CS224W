@@ -1,29 +1,9 @@
 from util import *
-
-<<<<<<< HEAD
 from collections import defaultdict
 import numpy as np
 from sklearn.metrics import pairwise_distances_argmin
 from scipy.stats import wasserstein_distance
-
-
-# Source files / other
-RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
-PROCESSED_GEO_PATH = 'Data/Geo/sf_geoboundaries.shp'
-ZONE_INFO_CSV_PATH = 'Data/Geo/sf_zone_info.csv'
-TRAVEL_TIMES_PATH = 'Data/Travel_Times/sf_hourly_traveltimes_2018_1.csv'
-SF_CENTROID = (-122.445515, 37.751943)
-
-# Graphs
-BORDER_GRAPH_PATH = 'Data/Geo/Graphs/sf_geoboundaries_borders.graph'
-DISTANCE_GRAPH_PATH = 'Data/Geo/Graphs/sf_geoboundaries_distances.graph'
-INTERMEDIATE_UBER_GRAPH_PATH = 'Data/Geo/Graphs/sf_uber_intermediate_graph.graph'
-FINAL_UBER_GRAPH_PATH = 'Data/Geo/Graphs/sf_uber_final_graph.graph'
-
-# Output images
-MAP_IMAGE_PATH = 'Data/Geo/Images/sf_geoboundaries.png'
-UBER_ZONE_BORDER_IMAGE_PATH = 'Data/Geo/Images/sf_uber_zone_borders_image.png'
-FINAL_UBER_GRAPH_IMAGE_PATH = 'Data/Geo/Images/sf_uber_final_image.png'
+import sys
 
 ###########################################################################
 ###########################################################################
@@ -83,6 +63,9 @@ def main():
         # Load graph 
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
+        print('Nodes: %d' % original_graph.GetNodes())
+        print('Edges: %d' % original_graph.GetEdges())
+        sys.exit(1)
         # Compute node degree for various attributes
         attributes = ['travel_time', 'travel_speed']
         for attribute in attributes:
@@ -133,7 +116,7 @@ def main():
         plt.title('Avg Travel Time vs. Avg Travel Speed for Each Hour of Day')
         plt.savefig('Data/Geo/Images/uber_avg_time_vs_avg_speed.png', dpi=300)
 
-    if True:
+    if False:
         FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
         original_graph = snap.TNEANet.Load(FIn)
         edgeWeightDistributions = []
