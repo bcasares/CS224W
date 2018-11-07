@@ -316,7 +316,8 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
                 longs.append(row.longitude)
             except:
                 continue
-        ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
+        vis = ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
+        fig.colorbar(vis)
     elif plot_centroids and centroid_classes:
         print(centroid_classes)
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
