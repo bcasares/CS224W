@@ -88,7 +88,13 @@ def computePlotNodeDegreesPublicTransit(file_path_graph, attributes):
 # Plot degree distribution
 ###########################################################################
 ###########################################################################
-def plotDegreeDistribution(original_graph, attribute, type_graph = "google"):
+def plotDegreeDistribution(original_graph, attribute, type_graph = "public transit"):
+
+    # graph = compute_node_degree(original_graph, attribute)
+    # weights = []
+    # for node in graph.Nodes():
+    #     weight = graph.GetFltAttrDatE(node.GetId(), "weight")
+    #     weights.append(weight)
 
     graph = compute_node_degree(original_graph, attribute)
     weights = []
@@ -96,32 +102,11 @@ def plotDegreeDistribution(original_graph, attribute, type_graph = "google"):
         weight = graph.GetFltAttrDatE(node.GetId(), "weight")
         weights.append(weight)
 
-    graph = compute_node_degree(original_graph, attribute)
-    weights = []
-    for node in graph.Nodes():
-        weight = graph.GetFltAttrDatE(node.GetId(), "weight")
-        weights.append(weight)
-
-
-    # Create some example data
-
-    # Usual histogram plot
-    # Scatter plot
     # Now we find the center of each bin from the bin edges
-    plt.figure()
-    n, bins, patches = plt.hist(weights, bins=100)  # output is two arrays
-    bins_mean = [0.5 * (bins[i] + bins[i+1]) for i in range(len(n))]
-
-    plt.figure()
-    plt.scatter(bins_mean, n, label="Degree distribution for " +type_graph + " " + attribute)
-    # plt.xscale('log')
-    # plt.yscale('log')
-
-
     plt.hist(weights, bins=50, log=True)
     plt.xlabel('Node Degree (log)')
     plt.ylabel('# Nodes with a Given Degree (log)')
-    plt.title('Degree Distribution ')
+    plt.title('Degree Distribution'+graph_type.title()+attribute.title())
     plt.legend()
     plt.grid(which='both', axis='both')
     plt.savefig("Data/Geo/Images/degree_distribution_"+type_graph+"_"+attribute+".png")
@@ -173,15 +158,41 @@ def dijkstra(graph, source):
 ###########################################################################
 ###########################################################################
 
-def compute_centrality(graph):
+def compute_centrality(graph, graph_type=""):
     nx_graph = create_nx_graph(graph)
     centrality = nx.eigenvector_centrality(nx_graph, weight='weight')
-    draw_map('node_centrality', plot_centrality=centrality)
+    draw_map('Data/Geo/Images/node_centrality_'+graph_type, plot_centrality=centrality)
+
+##################################################
+###########################################################################
+# Find Node Roles
+###########################################################################
+##########################
+
+def find_node_roles(original_graph, attributes=['travel_time_12'], graph_type=""):
+    #Find node strucural roles
+    edgeWeightDistributions = []
+    for attribute in attributes:
+        edgeWeights = get_edge_weights(original_graph, attribute)
+        #1. Convert each node array of edges to histogram
+            #Find global min and max values of weights
+        minWeight = min([min(weights) for node, weights in edgeWeights.iteritems()])
+        maxWeight = max([max(weights) for node, weights in edgeWeights.iteritems()])
+        edgeWeightHistograms = {}
+        for node, weights in edgeWeights.iteritems():
+            histo = np.histogram(weights, bins=[  21.65,341.75083333,661.85166667,981.9525,1302.05333333, 1622.15416667, 1942.255, 2262.35583333,2582.45666667, 2902.5575,3222.65833333,3542.75916667,3862.86],
+                range=(minWeight, maxWeight))
+            edgeWeightHistograms[node] = list(histo[0])
+
+        nodes, histograms = zip(*edgeWeightHistograms.iteritems())
+        centers, labels = find_clusters(np.array(histograms), 5)
+        node_roles = dict(zip(nodes, labels))
+        draw_map("Data/Geo/Images/node_roles_" +attribute+"_"+graph_type, plot_centroids=True, centroid_classes=node_roles)
+
 
 ###########################################################################
 ###########################################################################
 
->>>>>>> master
 # Main function
 ###########################################################################
 ###########################################################################
@@ -250,26 +261,8 @@ def main():
     FIn = snap.TFIn(FINAL_UBER_GRAPH_PATH)
     original_graph = snap.TNEANet.Load(FIn)
 
-    #Find node strucural roles
-    if False:
-        edgeWeightDistributions = []
-        attributes = ['travel_time_12']
-        for attribute in attributes:
-            edgeWeights = get_edge_weights(original_graph, attribute)
-            #1. Convert each node array of edges to histogram
-                #Find global min and max values of weights
-            minWeight = min([min(weights) for node, weights in edgeWeights.iteritems()])
-            maxWeight = max([max(weights) for node, weights in edgeWeights.iteritems()])
-            edgeWeightHistograms = {}
-            for node, weights in edgeWeights.iteritems():
-                histo = np.histogram(weights, bins=[  21.65,341.75083333,661.85166667,981.9525,1302.05333333, 1622.15416667, 1942.255, 2262.35583333,2582.45666667, 2902.5575,3222.65833333,3542.75916667,3862.86],
-                    range=(minWeight, maxWeight))
-                edgeWeightHistograms[node] = list(histo[0])
-
-            nodes, histograms = zip(*edgeWeightHistograms.iteritems())
-            centers, labels = find_clusters(np.array(histograms), 5)
-            node_roles = dict(zip(nodes, labels))
-            draw_map(attribute+'_node_roles', plot_centroids=True, centroid_classes=node_roles)
+    if True:
+        find_node_roles(original_graph)
 
     #Shortest distance path
     if False:

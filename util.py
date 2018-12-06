@@ -61,6 +61,16 @@ def load_raw_data():
 
 ###########################################################################
 ###########################################################################
+# Load raw data (.json file)
+###########################################################################
+###########################################################################
+def load_graph(file_path=FINAL_UBER_GRAPH_PATH):
+    FIn = snap.TFIn(file_path)
+    return snap.TNEANet.Load(FIn)
+
+
+###########################################################################
+###########################################################################
 # Load processed data (.shp file)
 ###########################################################################
 ###########################################################################
@@ -319,15 +329,18 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         vis = ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
         fig.colorbar(vis)
     elif plot_centroids and centroid_classes:
-        print(centroid_classes)
+        # print(centroid_classes)
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         lats = []
         longs = []
         colors = []
         for i, row in zone_info.iterrows():
-            lats.append(row.latitude)
-            longs.append(row.longitude)
-            colors.append(centroid_classes[row.id])
+            try :
+                colors.append(centroid_classes[row.id])
+                lats.append(row.latitude)
+                longs.append(row.longitude)
+            except :
+                continue
         ax.scatter(lats, longs, c=colors, cmap='viridis')
     # Plot centroids
     elif plot_centroids:
@@ -338,10 +351,13 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
     elif plot_centrality:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         lats, longs, centrality = [], [], []
-        for i, row in zone_info.iterrows(): 
-            lats.append(row.latitude)
-            longs.append(row.longitude)
-            centrality.append(plot_centrality[row.id])
+        for i, row in zone_info.iterrows():
+            try :
+                centrality.append(plot_centrality[row.id])
+                lats.append(row.latitude)
+                longs.append(row.longitude)
+            except :
+                continue
         ax.scatter(lats, longs, c=centrality, cmap=plt.cm.get_cmap('Wistia'))
 
     ax.set_xticks([])

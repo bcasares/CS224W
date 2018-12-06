@@ -15,12 +15,12 @@ import metrics
 GOOGLE_API_KEY = "AIzaSyD7_s0eA-M967PpPLQfu9sKwnkiNVSHoE8" #abecs224w3
 
 SF_ZONE_INFO = os.path.join("Data", "Geo", "sf_zone_info.csv")
-SF_REDUCED_GRAPH = os.path.join("Data", "Geo", "sf_uber_final_graph.graph")
-PUBLIC_TRANSIT_GRAPH_PATH_SAVE = os.path.join("Data", "Geo", "public_transit.graph")
-# PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "public_transit_complete.graph")
-PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "public_transit_reduced5pm.graph")
+SF_REDUCED_GRAPH = os.path.join("Data", "Geo", "Graphs", "sf_uber_final_graph.graph")
+PUBLIC_TRANSIT_GRAPH_PATH_SAVE = os.path.join("Data", "Geo", "Graphs", "public_transit.graph")
+# PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo","Graphs",  "public_transit_complete.graph")
+PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "Graphs", "public_transit_reduced5pm.graph")
 PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Data", "Geo", "Images", "public_transit_graph_5pm.png")
-# PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Images", "public_transit_graph_reduced.png")
+# PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Data", "Geo", "Images", "public_transit_graph_reduced.png")
 
 class PublicTransport(object):
 
@@ -50,7 +50,7 @@ class PublicTransport(object):
         data["lat_long"] = data.apply(latLong, axis = 1)
         return data
 
-    def loadGraph(self, file_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD, create_new=False, to_print=True):
+    def loadGraph(self, file_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD, create_new=False, to_print=False):
         """
         Loads the graph if the graph already exists
         """
@@ -241,9 +241,13 @@ class PublicTransport(object):
 
 if __name__ == "__main__":
     public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
-    metrics.plotDegreeDistribution(original_graph=public_transport.graph, attribute="duration_seconds", type_graph="public transit")
-    uber_graph = metrics.load_graph()
-    metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_time_17", type_graph="uber")
-    metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_speed_17", type_graph="uber")
+    metrics.plotDegreeDistribution(original_graph=public_transport.graph, attribute="duration_seconds", type_graph="public_transit")
+    metrics.plotDegreeDistribution(original_graph=public_transport.graph, attribute="distance_meters", type_graph="public_transit")
+    metrics.compute_centrality(public_transport.graph, graph_type="public_transit")
+    metrics.find_node_roles(public_transport.graph, attributes=["duration_seconds", "distance_meters"], graph_type="public_transit")
+
+    # uber_graph = metrics.load_graph()
+    # metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_time_17", type_graph="uber")
+    # metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_speed_17", type_graph="uber")
 
 
