@@ -345,10 +345,10 @@ class PublicTransport(object):
             print "The total number of Nodes is",  self.graph.GetNodes()
             print "The total number of Edges is",  self.graph.GetEdges()
 
-        # self.saveGraph(file_path=PUBLIC_TRANSIT_PLUS_INTER_GRAPH_PATH_SAVE)
-        # d = {'node_id': self.hash_to_node.values(), 'hash_name': self.hash_to_node.keys()}
-        # df = pd.DataFrame(data = d)
-        # df.to_csv("hash_node.csv")
+       # self.saveGraph(file_path=graph_file)
+       #  d = {'node_id': self.hash_to_node.values(), 'hash_name': self.hash_to_node.keys()}
+       #  df = pd.DataFrame(data = d)
+       #  df.to_csv("hash_node.csv")
 
     def intermediateLocations(self, directions, edge_id):
         """
@@ -590,7 +590,7 @@ if __name__ == "__main__":
 
     # unpickled_df = pd.read_pickle("./dummy.pkl")
 
-    # unpickled_df = pd.read_pickle("Data/ExtraPublicTransit/google_response_data.pkl")
+    #unpickled_df = pd.read_pickle("Data/ExtraPublicTransit/google_response_data.pkl")
     # unpickled_df.to_csv("Data/ExtraPublicTransit/google_respose.csv")
     # public_transport = PublicTransport(create_new=True, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
     # public_transport.CreateGraphFromSavedData(unpickled_df=unpickled_df)
