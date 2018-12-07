@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import PatchCollection
 from descartes import PolygonPatch
 
-
 # GOOGLE_API_KEY = "AIzaSyAi5ERQfBOcdO54IT3MOmiCnNubFB1RWWY" # First Key, no-credit
 # GOOGLE_API_KEY = "AIzaSyCnzf2UnjffaNCRX_rGvlypYBZb5rt6zyM" #abecs224w1 no-credit
 # GOOGLE_API_KEY = "AIzaSyCUHPr2e0NmO5lwrB5cHuVUCDVeSDYWDQ0" #abecs224w2 no-credit
@@ -588,13 +587,18 @@ if __name__ == "__main__":
     # metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_time_17", type_graph="uber")
     # metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_speed_17", type_graph="uber")
 
-    # unpickled_df = pd.read_pickle("./dummy.pkl")
-
     #unpickled_df = pd.read_pickle("Data/ExtraPublicTransit/google_response_data.pkl")
     # unpickled_df.to_csv("Data/ExtraPublicTransit/google_respose.csv")
     # public_transport = PublicTransport(create_new=True, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
     # public_transport.CreateGraphFromSavedData(unpickled_df=unpickled_df)
     # public_transport.draw_map("public_transport_plus_intermediate.png")
+
+    if False:
+        public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False,
+                graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE)
+        public_transport.saveGraphToCSVPredictionAnalysis()
+
+
 
     # Create Subraphs based on intermediate
     if False:
@@ -629,17 +633,19 @@ if __name__ == "__main__":
 
 
     # Walking Graph Weighted
-    if True:
+    if False:
         public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
                 check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED)
-        public_transport.draw_map("Plots/public_transport_walking_weighted.png", plot_edges=True, node_scaling='degree_weighted_both')
+        public_transport.draw_map("Plots/public_transport_walking_weighted_nodes.png", plot_edges=False, plot_nodes=True,
+                node_scaling='degree_weighted_both')
 
 
     # Transit system Graph Weighted
-    if True:
+    if False:
         public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
                 check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED)
-        public_transport.draw_map("Plots/public_transport_transit_systems_weighted.png", plot_edges=True, node_scaling='degree_weighted_both')
+        public_transport.draw_map("Plots/public_transport_transit_systems_weighted_nodes.png", plot_edges=False, plot_nodes=True,
+                node_scaling='degree_weighted_both')
 
     # Plot all edges
     if False:
