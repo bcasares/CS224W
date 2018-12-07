@@ -30,9 +30,13 @@ SF_ZONE_INFO = os.path.join("Data", "Geo", "sf_zone_info.csv")
 SF_REDUCED_GRAPH = os.path.join("Data", "Geo", "Graphs", "sf_uber_final_graph.graph")
 PUBLIC_TRANSIT_GRAPH_PATH_SAVE = os.path.join("Data", "Geo", "Graphs", "public_transit.graph")
 PUBLIC_TRANSIT_PLUS_INTER_GRAPH_PATH_SAVE = os.path.join("Data", "Geo", "Graphs", "public_transit_plus_inter.graph")
+
 # PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo","Graphs",  "public_transit_complete.graph")
 # PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "Graphs", "public_transit_reduced5pm.graph")
 PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "Graphs", "public_transit_plus_inter.graph")
+# PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "Graphs", "transit_system.graph")
+# PUBLIC_TRANSIT_GRAPH_PATH_LOAD = os.path.join("Data", "Geo", "Graphs", "walking.graph")
+
 PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Data", "Geo", "Images", "public_transit_graph_5pm.png")
 # PUBLIC_TRANSIT_GRAPH_PLOT = os.path.join("Data", "Geo", "Images", "public_transit_graph_reduced.png")
 
@@ -59,8 +63,6 @@ class PublicTransport(object):
             self.checkAttributes()
 
     def createMapping(self):
-        self.node_to_hash = {}
-        self.hash_to_node = {}
         for i, row in self.data.iterrows():
             hash_name = geohash.encode(round(row.longitude,3), round(row.latitude,3))
             self.hash_to_node[hash_name] = row.id
@@ -87,7 +89,6 @@ class PublicTransport(object):
         Loads the graph if the graph already exists
         """
         # Load graph
-        print file_path
         if create_new:
             self.graph = snap.TNEANet.New()
         else:
@@ -117,8 +118,9 @@ class PublicTransport(object):
         print("saving graph", i, j)
         FOut = snap.TFOut(file_path)
         self.graph.Save(FOut)
-        with open('temp.txt', 'w') as f:
-            print >> f, 'i=', i, 'j=', j
+        if False:
+            with open('temp.txt', 'w') as f:
+                print >> f, 'i=', i, 'j=', j
 
     def drawGraph(self, file_path=PUBLIC_TRANSIT_GRAPH_PLOT):
         metrics.draw_graph(self.graph, file_path)
@@ -301,7 +303,7 @@ class PublicTransport(object):
                         self.addNodesAndEdgesPublicTransitGraph(row_1.id, row_2.id, edge_id, distance_meters, duration_seconds)
                         edge_id+=2
 
-                        if (count % 1000) == 0:
+                        if (count % 1000) == 0 :
                             self.saveGraph(file_path=PUBLIC_TRANSIT_GRAPH_PATH_SAVE, i=count, j=count)
 
                         # print "_______________________________________________________"
@@ -339,10 +341,10 @@ class PublicTransport(object):
             print "The total number of Nodes is",  self.graph.GetNodes()
             print "The total number of Edges is",  self.graph.GetEdges()
 
-        self.saveGraph(file_path=PUBLIC_TRANSIT_PLUS_INTER_GRAPH_PATH_SAVE)
-        d = {'node_id': self.hash_to_node.values(), 'hash_name': self.hash_to_node.keys()}
-        df = pd.DataFrame(data = d)
-        df.to_csv("hash_node.csv")
+        # self.saveGraph(file_path=PUBLIC_TRANSIT_PLUS_INTER_GRAPH_PATH_SAVE)
+        # d = {'node_id': self.hash_to_node.values(), 'hash_name': self.hash_to_node.keys()}
+        # df = pd.DataFrame(data = d)
+        # df.to_csv("hash_node.csv")
 
 
 
@@ -370,6 +372,48 @@ class PublicTransport(object):
                     duration_seconds, travel_mode=travel_mode, building_lat_long=True)
             edge_id+=2
         return edge_id
+
+    def createSubGraphs(self, to_print = True):
+        """
+        Build two subgraphs based on the graph plus intermediate steps
+
+        There are two graphs, either 'WALKING', 'TRANSIT'.
+        """
+
+        walking_graph = snap.TNEANet.New()
+        transit_system_graph = snap.TNEANet.New()
+        edge_id_walking = 0
+        edge_id_transit_system = 0
+        for edge in self.graph.Edges():
+            node1 = edge.GetSrcNId()
+            node2 = edge.GetDstNId()
+            distance_meters = self.graph.GetFltAttrDatE(edge.GetId(), "distance_meters")
+            duration_seconds = self.graph.GetFltAttrDatE(edge.GetId(), "duration_seconds")
+            travel_mode = self.graph.GetStrAttrDatE(edge.GetId(), "travel_mode")
+            if travel_mode == "WALKING":
+                addNodesAndEdges(walking_graph, node1, node2, edge_id_walking, distance_meters, duration_seconds, travel_mode,to_print=False)
+                edge_id_walking += 2
+            else: # Travel mode is 'TRANSTI'
+                addNodesAndEdges(transit_system_graph, node1, node2, edge_id_transit_system, distance_meters, duration_seconds, travel_mode,to_print=False)
+                edge_id_transit_system += 2
+        if to_print:
+            # Walking
+            num_edges = walking_graph.GetEdges()
+            num_nodes = walking_graph.GetNodes()
+            print('number of nodes for the walking graph is: {}'.format(num_nodes))
+            print('number of edges for the walking graph is: {}'.format(num_edges))
+
+            # Transit
+            num_edges = transit_system_graph.GetEdges()
+            num_nodes = transit_system_graph.GetNodes()
+            print('number of nodes for the transit system graph is: {}'.format(num_nodes))
+            print('number of edges for the transit system graph is: {}'.format(num_edges))
+
+
+        walking_name = os.path.join("Data", "Geo", "Graphs", "walking.graph")
+        transit_name = os.path.join("Data", "Geo", "Graphs", "transit_system.graph")
+        saveGraph(walking_graph, walking_name)
+        saveGraph(transit_system_graph, transit_name)
 
     def addNodesAndEdgesPublicTransitGraph(self, zone1_id, zone2_id, edge_id, distance_meters, duration_seconds, travel_mode=None, building_lat_long=False, to_print=False):
         # Add nodes
@@ -403,12 +447,8 @@ class PublicTransport(object):
             self.count_dup += 1
 
         if to_print:
-            # print "here"
             num_edges = self.graph.GetEdges()
             num_nodes = self.graph.GetNodes()
-            # print num_edges
-            # print num_nodes
-            # Print some properties of the graph
             print('Number of nodes (zones): {}'.format(num_nodes))
             print('Number of edges (zone borders): {}'.format(num_edges))
 
@@ -453,6 +493,26 @@ class PublicTransport(object):
         #plt.show()
 
 
+def addNodesAndEdges(graph, node1, node2, edge_id, distance_meters, duration_seconds, travel_mode, to_print=False):
+    if not graph.IsNode(node1) : graph.AddNode(node1)
+    if not graph.IsNode(node2) : graph.AddNode(node2)
+    if not graph.IsEdge(node1, node2) and not graph.IsEdge(node2, node1):
+        graph.AddEdge(node1, node2, edge_id)
+        graph.AddEdge(node2, node1, edge_id+1)
+        graph.AddFltAttrDatE(edge_id, distance_meters, 'distance_meters')
+        graph.AddFltAttrDatE(edge_id, duration_seconds, 'duration_seconds')
+        graph.AddFltAttrDatE(edge_id+1, distance_meters, 'distance_meters')
+        graph.AddFltAttrDatE(edge_id+1, duration_seconds, 'duration_seconds')
+        if travel_mode is not None:
+            graph.AddStrAttrDatE(edge_id, travel_mode , 'travel_mode')
+            graph.AddStrAttrDatE(edge_id+1, travel_mode, 'travel_mode')
+
+def saveGraph(graph, file_path):
+    """
+    Save graph
+    """
+    FOut = snap.TFOut(file_path)
+    graph.Save(FOut)
 
 if __name__ == "__main__":
     # public_transport = PublicTransport(create_new=False, read_google_maps=True, plot_graph=False, check_attributes=False, reduce_graph=False)
@@ -476,8 +536,9 @@ if __name__ == "__main__":
 
 
 
-    # public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
-    # public_transport.saveGraphToCSVPredictionAnalysis()
+    public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
+    public_transport.createSubGraphs(to_print = True)
+    # public_transport.draw_map("public_transport_plus_intermediate.png")
 
 
 
