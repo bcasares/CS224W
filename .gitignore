@@ -4,4 +4,4 @@ Data/Geo/sf_geoboundaries_distances.graph
 *.graph
 *.pyc
 Data/Geo/Images/uber_travel_time/out.mp4
-Data/ExtraPublicTransit/google_response_data.pkl
+Data/ExtraPublicTransit/*
