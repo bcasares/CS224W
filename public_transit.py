@@ -428,7 +428,7 @@ class PublicTransport(object):
             print('Number of edges (zone borders): {}'.format(num_edges))
 
 
-    def draw_map(self, filename, plot_edges=False, plot_nodes=False, node_scaling='degree'):
+    def draw_map(self, filename, plot_edges=False, plot_nodes=False, node_scaling='degree', centrality=None):
 
         ###################################################
         # Always the same
@@ -467,12 +467,13 @@ class PublicTransport(object):
                 long, lat = geohash.decode(self.node_to_hash[node])
                 lats.append(lat)
                 longs.append(long)
-                # Get node degree
+                # Use node degree
                 if node_scaling == 'degree':
                     try: degree = self.graph.GetNI(int(node)).GetDeg()
                     except: degree = 0
+                    degrees.append(degree)
                 # Get weighted node degree
-                else:
+                elif node_scaling in ['degree_weighted_out', 'degree_weighted_in', 'degree_weighted_both']:
                     try: 
                         node, degree = self.graph.GetNI(int(node)), 0
                         # Based on out edges
@@ -491,7 +492,9 @@ class PublicTransport(object):
                                 if weight > 0: degree += weight   
                     except: 
                         degree = 0
-                degrees.append(degree)
+                    degrees.append(degree)
+            # If doing node centrality
+            if node_scaling == 'centrality': degrees = [float(x) for x in centrality]
             # Scale degrees so that dots are properly sized
             max_degree = float(max(degrees))
             scales = [float(x)/max_degree*75 for x in degrees]
@@ -526,8 +529,9 @@ if __name__ == "__main__":
     #public_transport.draw_map("public_transport_plus_intermediate.png")
 
     # Load graph
+    graph_file = PUBLIC_TRANSIT_GRAPH_WEIGHTED_PATH_LOAD
     public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
-                                        check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_WEIGHTED_PATH_LOAD)
+                                        check_attributes=False, reduce_graph=False, graph_path=graph_file)
     
     # Plot all edges
     if False:
@@ -540,15 +544,16 @@ if __name__ == "__main__":
         public_transport.CreateGraphFromSavedData(unpickled_df=unpickled_df, graph_file=PUBLIC_TRANSIT_PLUS_INTER_GRAPH_WEIGHTED_PATH_SAVE)
 
     # Plot all nodes
-    if True:
-        #public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree.png", plot_nodes=True, node_scaling='degree')
+    if False:
+        public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree.png", plot_nodes=True, node_scaling='degree')
         #public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree_weighted_in.png", plot_nodes=True, node_scaling='degree_weighted_in')
         #public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree_weighted_out.png", plot_nodes=True, node_scaling='degree_weighted_out')
         public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree_weighted_both.png", plot_nodes=True, node_scaling='degree_weighted_both')
 
     # Compute and plot node centrality
-    if False:
-        pass
+    if True:
+        centrality = compute_centrality(public_transport.graph, graph_type='weighted_inter', node_to_hash=public_transport.node_to_hash)
+        public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_centrality.png", plot_nodes=True, node_scaling='centrality', centrality=centrality)
 
 
 
