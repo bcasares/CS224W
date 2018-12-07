@@ -264,13 +264,13 @@ def main():
     if True:
         find_node_roles(original_graph)
 
-    #Shortest distance path
+    # Shortest distance path
     if False:
         graph = build_single_weight_graph(original_graph, 'travel_time_18')
         distances, prev = dijkstra(graph, 1)
         print(distances)
 
-    #Eigenvector centrality
+    # Eigenvector centrality
     if True:
         compute_centrality(original_graph)
 
