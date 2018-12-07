@@ -3,3 +3,4 @@ Data/Travel_Times/*
 Data/Geo/sf_geoboundaries_distances.graph
 *.graph
 *.pyc
+Data/Geo/Images/uber_travel_time/out.mp4
