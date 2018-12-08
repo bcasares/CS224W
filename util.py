@@ -10,6 +10,7 @@ import snap
 from math import radians, cos, sin, asin, sqrt
 import networkx as nx
 import pandas as pd
+import geohash
 
 # Source files / other
 RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
@@ -326,7 +327,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
                 longs.append(row.longitude)
             except:
                 continue
-        vis = ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('Wistia'))
+        vis = ax.scatter(lats, longs, s=scales, c=scales, cmap=plt.cm.get_cmap('plasma'))
         fig.colorbar(vis)
     elif plot_centroids and centroid_classes:
         # print(centroid_classes)
@@ -347,7 +348,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         for i, row in zone_info.iterrows():
             ax.scatter(row.latitude, row.longitude, color='r', s=20)
-    #plot centrality
+    # plot centrality
     elif plot_centrality:
         zone_info = pd.read_csv(ZONE_INFO_CSV_PATH)
         lats, longs, centrality = [], [], []
@@ -358,7 +359,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
                 longs.append(row.longitude)
             except :
                 continue
-        ax.scatter(lats, longs, c=centrality, cmap=plt.cm.get_cmap('Wistia'))
+        ax.scatter(lats, longs, c=centrality, cmap=plt.cm.get_cmap('plasma'))
 
     ax.set_xticks([])
     ax.set_yticks([])
@@ -367,7 +368,7 @@ def draw_map(filename, plot_centroids=False, scale_centroids=False, plot_edges=F
 
 ################r###########################################################
 ###########################################################################
-# Create networkx graph from a snap graph
+# Create networkx graph from a snap graph (old way)
 ###########################################################################
 ###########################################################################
 def create_nx_graph(graph, attributes=True):
@@ -392,6 +393,31 @@ def create_nx_graph(graph, attributes=True):
             except:
                 nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
         else:
+            nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
+
+    return nx_graph
+
+################r###########################################################
+###########################################################################
+# Create networkx graph from a snap graph (new way)
+###########################################################################
+###########################################################################
+def create_nx_graph_new(graph, node_to_hash):
+    # Get node longitudes and latitudes
+    lat_longs = {}
+    for node in node_to_hash:
+        long, lat = geohash.decode(node_to_hash[node])
+        lat_longs[int(node)] = (lat, long)
+
+    # New nx graph
+    nx_graph = nx.Graph()
+    for node in graph.Nodes():
+        nx_graph.add_node(node.GetId(), pos=(lat_longs[node.GetId()][0],lat_longs[node.GetId()][1]))
+    for edge in graph.Edges():
+        weight = graph.GetFltAttrDatE(edge.GetId(), 'weight')
+        try:
+            nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId(), weight=weight)
+        except:
             nx_graph.add_edge(edge.GetSrcNId(), edge.GetDstNId())
 
     return nx_graph

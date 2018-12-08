@@ -10,6 +10,7 @@ import metrics
 import geohash
 import hashlib
 from metrics import compute_centrality
+import more_metrics
 
 import fiona
 from shapely.geometry import mapping, shape, Polygon, MultiPolygon, Point
@@ -35,7 +36,7 @@ PUBLIC_TRANSIT_PLUS_INTER_GRAPH_PATH_SAVE = os.path.join("Data", "Geo", "Graphs"
 PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE = os.path.join("Data", "Geo", "Graphs", "public_transit_plus_inter.graph")
 PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT = os.path.join("Data", "Geo", "Graphs", "transit_system.graph")
 PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING = os.path.join("Data", "Geo", "Graphs", "walking.graph")
-
+PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_SCC = os.path.join("Data", "Geo", "Graphs", "walking_scc.graph")
 
 PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED = os.path.join("Data", "Geo", "Graphs", "weighted_transit_system.graph")
 PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED = os.path.join("Data", "Geo", "Graphs", "weighted_walking.graph")
@@ -473,51 +474,56 @@ class PublicTransport(object):
             print('Number of edges (zone borders): {}'.format(num_edges))
 
 
-    def draw_map(self, filename, plot_edges=False, plot_nodes=False, node_scaling='degree'):
+    def draw_map(self, filename, plot_edges=False, plot_nodes=False, node_scaling='degree', centrality=None, new_fig=True, last=True):
 
         ###################################################
         # Always the same
         ###################################################
         # Extract polygons
-        polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
-        # Setup plot
-        fig = plt.figure(figsize=(15, 20))
-        ax = fig.add_subplot(111)
-        min_x, min_y, max_x, max_y = polys.bounds
-        w, h = max_x - min_x, max_y - min_y
-        ax.set_xlim(min_x - 0.2 * w, max_x + 0.2 * w)
-        ax.set_ylim(min_y - 0.2 * h, max_y + 0.2 * h)
-        ax.set_aspect(1)
-        # Plot zones
-        patches = []
-        for idx, p in enumerate(polys): patches.append(PolygonPatch(p, fc='#AEEDFF', ec='#555555', alpha=1., zorder=1))
-        ax.add_collection(PatchCollection(patches, match_original=True))
+        if new_fig:
+            polys = MultiPolygon([shape(zone['geometry']) for zone in fiona.open(PROCESSED_GEO_PATH)])
+            # Setup plot
+            self.fig = plt.figure(figsize=(15, 20))
+            self.ax = self.fig.add_subplot(111)
+            ax = self.ax
+            min_x, min_y, max_x, max_y = polys.bounds
+            w, h = max_x - min_x, max_y - min_y
+            ax.set_xlim(min_x - 0.2 * w, max_x + 0.2 * w)
+            ax.set_ylim(min_y - 0.2 * h, max_y + 0.2 * h)
+            ax.set_aspect(1)
+            # Plot zones
+            patches = []
+            for idx, p in enumerate(polys): patches.append(PolygonPatch(p, fc='#AEEDFF', ec='#555555', alpha=1., zorder=1))
+            ax.add_collection(PatchCollection(patches, match_original=True))
 
-        ###################################################
-        # Plot edges
-        ###################################################
-        if plot_edges:
-            for i, edge in tqdm(enumerate(self.graph.Edges())):
-                start = geohash.decode(self.node_to_hash[str(edge.GetSrcNId())])
-                end = geohash.decode(self.node_to_hash[str(edge.GetDstNId())])
-                ax.plot([start[1], end[1]], [start[0], end[0]], color='g', linewidth='1')
+            ###################################################
+            # Plot edges
+            ###################################################
+            if plot_edges:
+                for i, edge in tqdm(enumerate(self.graph.Edges())):
+                    start = geohash.decode(self.node_to_hash[str(edge.GetSrcNId())])
+                    end = geohash.decode(self.node_to_hash[str(edge.GetDstNId())])
+                    ax.plot([start[1], end[1]], [start[0], end[0]], color='g', linewidth='1')
 
         ###################################################
         # Plot nodes
         ###################################################
+        ax = self.ax
         if plot_nodes:
             lats, longs, degrees = [], [], []
-            for node in self.node_to_hash:
+            for node_ in self.graph.Nodes():
+                node = str(node_.GetId())
                 # Get lat and long of node
                 long, lat = geohash.decode(self.node_to_hash[node])
                 lats.append(lat)
                 longs.append(long)
-                # Get node degree
+                # Use node degree
                 if node_scaling == 'degree':
                     try: degree = self.graph.GetNI(int(node)).GetDeg()
                     except: degree = 0
+                    degrees.append(degree)
                 # Get weighted node degree
-                else:
+                elif node_scaling in ['degree_weighted_out', 'degree_weighted_in', 'degree_weighted_both']:
                     try:
                         node, degree = self.graph.GetNI(int(node)), 0
                         # Based on out edges
@@ -536,19 +542,25 @@ class PublicTransport(object):
                                 if weight > 0: degree += weight
                     except:
                         degree = 0
-                degrees.append(degree)
+                    degrees.append(degree)
+            # If doing node centrality
+            if node_scaling == 'centrality': degrees = [float(x) for x in centrality]
             # Scale degrees so that dots are properly sized
-            max_degree = float(max(degrees))
-            scales = [float(x)/max_degree*75 for x in degrees]
-            vis = ax.scatter(lats, longs, s=scales, c=degrees, cmap=plt.cm.get_cmap('plasma'))
-            fig.colorbar(vis)
+            if node_scaling is not None:
+                max_degree = float(max(degrees))
+                scales = [float(x)/max_degree*75 for x in degrees]
+                vis = ax.scatter(lats, longs, s=scales, c=degrees, cmap=plt.cm.get_cmap('plasma'))
+                fig.colorbar(vis)
+            else:
+                vis = ax.scatter(lats, longs)
 
         ###################################################
         # Always the same
         ###################################################
         ax.set_yticks([])
-        plt.savefig(filename, alpha=True, dpi=300)
-        #plt.show()
+        if last:
+            plt.savefig(filename, alpha=True, dpi=300)
+            # plt.show()
 
 
 def addNodesAndEdges(graph, node1, node2, edge_id, distance_meters, duration_seconds, travel_mode, edge_weight=None, to_print=False):
@@ -601,36 +613,131 @@ if __name__ == "__main__":
 
 
     # Create Subraphs based on intermediate
-    if False:
-        public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False,
-                graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE)
-        public_transport.createSubGraphs(to_print = True)
+    #if False:
+        #public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False,
+        #        graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE)
+        #public_transport.createSubGraphs(to_print = True)
         # public_transport.draw_map("public_transport_plus_intermediate.png")
 
-    # Weighted path load
+    #####################################
+    # LOAD GRAPH
+    #####################################
+
+    # CHOOSE GRAPH TO LOAD
+    # graph_file = PUBLIC_TRANSIT_GRAPH_WEIGHTED_PATH_LOAD # Weighted, both transit and walking
+    # graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING # Unweighted, only walking
+    # graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_SCC # Unweighted, scc of only walking
+    # graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT # Unweighted, only transit
+    # graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED # Weighted, only walking
+    # graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED # Weighted, only transit
+
+    # LOAD
+    all_intermediate = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE)
+    walking = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING)
+    transit_systems = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT)
+    # walking_scc = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_SCC)
+
+    #####################################
+    # COMPUTING METRICS
+    #####################################
+    # Graphs = [all_intermediate.graph, walking.graph, transit_systems.graph]
+    # names=["all_intermediata", "walking", "transit_systems"]
+
     if False:
-        public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
-                                        check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_WEIGHTED_PATH_LOAD)
+        Graph = walking.graph
+        Components = snap.TCnComV()
+        snap.GetSccs(Graph, Components)
+        count = 0
+        for i, CnCom in tqdm(enumerate(Components)):
+            NIdV = snap.TIntV()
+            for e in CnCom:
+                NIdV.Add(e)
+            all_intermediate.graph = snap.GetSubGraph(walking.graph, NIdV)
+            num_nodes = all_intermediate.graph.GetNodes()
+            if num_nodes > 25 :
+                if count == 0:
+                    all_intermediate.draw_map("", plot_edges=False, plot_nodes=True,
+                        node_scaling=None, last=False)
+                if count == 4:
+                    all_intermediate.draw_map("Plots/sscc_walking_nodes_top_5.png", plot_edges=False, plot_nodes=True,
+                        node_scaling=None, new_fig=False, last=True)
+                else:
+                    all_intermediate.draw_map("", plot_edges=False, plot_nodes=True,
+                        node_scaling=None, new_fig=False, last=False)
+                count+=1
 
-    # Walking Graph
+        # Draw Nodes based on Node2Vec on the graph
+    if True:
+        random = [3180,3033,3967,2730,963] # P = 1, q = 1
+        structural_similarity = [2721,3033,3071,5137,4881] # p 0.001 q = 1000
+        community_detection = [3180,3826,3967,4855,3619] # p 1000 q = 0.1
+        all_node_to_vec = [random, structural_similarity, community_detection]
+
+        for i, elem in enumerate(all_node_to_vec):
+            # graph = snap.TNEANet.New()
+            NIdV = snap.TIntV()
+            for e in elem:
+                NIdV.Add(e)
+            walking.graph = snap.GetSubGraph(all_intermediate.graph, NIdV)
+            num_nodes = walking.graph.GetNodes()
+            print num_nodes
+            if i == 0:
+                walking.draw_map("", plot_edges=False, plot_nodes=True,
+                    node_scaling=None, last=False)
+            if i == 1:
+                walking.draw_map("", plot_edges=False, plot_nodes=True,
+                    node_scaling=None, new_fig=False, last=False)
+            if i == 2:
+                walking.draw_map("Plots/node_to_vec.png", plot_edges=False, plot_nodes=True,
+                    node_scaling=None, new_fig=False, last=True)
+
+    # Get edge list to run node2vec
     if False:
-        public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
-                check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING)
-        public_transport.draw_map("Plots/public_transport_walking.png", plot_edges=True)
+        with open('node2vec/graph/intermediate.edgelist', 'w') as f:
+            for edge in all_intermediate.graph.Edges():
+                print >> f, edge.GetSrcNId(),edge.GetDstNId()
 
-    # Transit system Graph
+    # Get Node with highest degree.
     if False:
-        public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
-                check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT)
-        public_transport.draw_map("Plots/public_transport_transit_systems.png", plot_edges=True)
+        NId1 = snap.GetMxDegNId(all_intermediate.graph)
+        print NId1
 
 
-    # Create weighted subgraphs
+    # Calculate degree distribution
     if False:
-        public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
-                            check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_WEIGHTED_PATH_LOAD)
-        public_transport.createSubGraphs(to_print = True, weighted=True)
+        # more_metrics.degreeDistribution(Graphs=Graphs, names=names)
+        pass
 
+    # Calculate  SCC, WCC, etc
+    if False:
+        for G, name in zip(Graphs, names):
+            scc = more_metrics.calculateBowTieStructure(G, name = name)
+            # if name =="walking":
+            #     print "saving"
+            #     FOut = snap.TFOut(PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_SCC)
+            #     scc.Save(FOut)
+
+    # Calulate degree count
+    if False:
+        for G, name in zip(Graphs, names):
+            more_metrics.degreeCount(G, name = name)
+
+    # Plot node reachability
+    if False:
+        more_metrics.calNodeReachability(walking.graph, name="walking")
+
+    # Plot scc for walking
+    if False:
+        walking_scc.draw_map("Plots/scc_walking_nodes.png", plot_edges=False, plot_nodes=True,
+                node_scaling=None)
+
+
+
+    #####################################
+    # MAKING SUBGRAPHS
+    #####################################
+    if False:
+        pass
 
     # Walking Graph Weighted
     if False:
@@ -638,7 +745,15 @@ if __name__ == "__main__":
                 check_attributes=False, reduce_graph=False, graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED)
         public_transport.draw_map("Plots/public_transport_walking_weighted_nodes.png", plot_edges=False, plot_nodes=True,
                 node_scaling='degree_weighted_both')
+        # WEIGHTED GRAPH WITH ALL TRANSPORT
+        if False:
+            unpickled_df = pd.read_pickle("Data/ExtraPublicTransit/google_response_data.pkl")
+            public_transport = PublicTransport(create_new=True, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
+            public_transport.CreateGraphFromSavedData(unpickled_df=unpickled_df, graph_file=PUBLIC_TRANSIT_PLUS_INTER_GRAPH_WEIGHTED_PATH_SAVE)
 
+        # WEIGHTED TRANSIT AND WALKING GRAPHS
+        if False:
+            public_transport.createSubGraphs(to_print=True, weighted=True)
 
     # Transit system Graph Weighted
     if False:
@@ -651,22 +766,35 @@ if __name__ == "__main__":
     if False:
         public_transport.draw_map("Plots/public_transport_plus_intermediate_all_edges.png", plot_edges=True)
 
-    # Make new graph that has weights on edges
+    #####################################
+    # PLOTTING
+    #####################################
     if False:
-        unpickled_df = pd.read_pickle("Data/ExtraPublicTransit/google_response_data.pkl")
-        public_transport = PublicTransport(create_new=True, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
-        public_transport.CreateGraphFromSavedData(unpickled_df=unpickled_df, graph_file=PUBLIC_TRANSIT_PLUS_INTER_GRAPH_WEIGHTED_PATH_SAVE)
+        # CHOOSE IMAGE FILE TO SAVE
+        plot_file = "Plots/public_transport_all_weighted_nodes.png" # Weighted, both transit and walking
+        #plot_file = "Plots/public_transport_walking.png" # Unweighted, only walking
+        #plot_file = "Plots/public_transport_transit_systems.png" # Unweighted, only transit
+        #plot_file = "Plots/public_transport_plus_intermediate_all_edges.png" # Unweighted, both transit and walking
+        #plot_file = "Plots/public_transport_walking_weighted.png" # Weighted, walking only
+        #plot_file = "Plots/public_transport_transit_systems_weighted.png" # Weighted, transit only
 
-    # Plot all nodes
-    if False:
-        #public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree.png", plot_nodes=True, node_scaling='degree')
-        #public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree_weighted_in.png", plot_nodes=True, node_scaling='degree_weighted_in')
-        #public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree_weighted_out.png", plot_nodes=True, node_scaling='degree_weighted_out')
-        public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_degree_weighted_both.png", plot_nodes=True, node_scaling='degree_weighted_both')
+        # CHOOSE PLOTTING OPTIONS
+        plot_edges = False
+        plot_nodes = True
+        node_scaling = 'degree_weighted_both'
 
-    # Compute and plot node centrality
+        # PLOT
+        public_transport.draw_map(plot_file, plot_edges=plot_edges, plot_nodes=plot_nodes, node_scaling=node_scaling)
+
+    #####################################
+    # METRICS
+    #####################################
     if False:
-        pass
+
+        # Compute and plot node centrality
+        if True:
+            centrality = compute_centrality(public_transport.graph, graph_type='weighted_inter', node_to_hash=public_transport.node_to_hash)
+            public_transport.draw_map("Plots/public_transport_plus_intermediate_all_nodes_centrality.png", plot_nodes=True, node_scaling='centrality', centrality=centrality)
 
 
 
