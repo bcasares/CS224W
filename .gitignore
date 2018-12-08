@@ -5,3 +5,4 @@ Data/Geo/sf_geoboundaries_distances.graph
 *.pyc
 Data/Geo/Images/uber_travel_time/out.mp4
 Data/ExtraPublicTransit/*
+node2vec/*
