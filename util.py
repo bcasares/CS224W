@@ -11,6 +11,7 @@ from math import radians, cos, sin, asin, sqrt
 import networkx as nx
 import pandas as pd
 import geohash
+from collections import defaultdict
 
 # Source files / other
 RAW_GEO_PATH = 'Data/Geo/sf_geoboundaries.json'
@@ -495,6 +496,25 @@ def compute_node_degree(original_graph, attribute, average=False, only_zone_neig
 
     # Return
     return graph
+
+################r###########################################################
+###########################################################################
+# Get edge weight distribution
+###########################################################################
+###########################################################################
+def get_edge_weight_distribution(graph, weight_label='weight'):
+    X, Y = [], []
+    # Get counts
+    counts = defaultdict(list)
+    for edge in graph.Edges():
+        edge_id = edge.GetId()
+        weight = graph.GetIntAttrDatE(edge_id, weight_label)
+        counts[weight].append('1')
+    counts = [(key, len(value)) for (key, value) in sorted(counts.items()) if not key == 0]
+    # Convert to X, Y
+    X = [a for (a,b) in counts]
+    Y = [b for (a,b) in counts]
+    return X, Y
 
 ###########################################################################
 ###########################################################################
