@@ -699,16 +699,6 @@ def find_node_roles(graph, attribute='weight'):
 
 if __name__ == "__main__":
     #public_transport = PublicTransport(create_new=False, read_google_maps=True, plot_graph=False, check_attributes=False, reduce_graph=False)
-
-    # metrics.plotDegreeDistribution(original_graph=public_transport.graph, attribute="duration_seconds", type_graph="public_transit")
-    # metrics.plotDegreeDistribution(original_graph=public_transport.graph, attribute="distance_meters", type_graph="public_transit")
-    # metrics.compute_centrality(public_transport.graph, graph_type="public_transit")
-    # metrics.find_node_roles(public_transport.graph, attributes=["duration_seconds", "distance_meters"], graph_type="public_transit")
-
-    # uber_graph = metrics.load_graph()
-    # metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_time_17", type_graph="uber")
-    # metrics.plotDegreeDistribution(original_graph=uber_graph, attribute="travel_speed_17", type_graph="uber")
-
     #unpickled_df = pd.read_pickle("Data/ExtraPublicTransit/google_response_data.pkl")
     # unpickled_df.to_csv("Data/ExtraPublicTransit/google_respose.csv")
     # public_transport = PublicTransport(create_new=True, read_google_maps=False, plot_graph=False, check_attributes=False, reduce_graph=False)
@@ -742,16 +732,18 @@ if __name__ == "__main__":
     # graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED # Weighted, only transit
 
     # LOAD
-    all_intermediate = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE)
-    walking = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING)
-    transit_systems = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT)
+    if False:
+        all_intermediate = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_INTERMEDIATE)
+        walking = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING)
+        transit_systems = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT)
+        Graphs = [all_intermediate.graph, walking.graph, transit_systems.graph]
+        names=["all_intermediata", "walking", "transit_systems"]
+
     # walking_scc = PublicTransport(graph_path=PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_SCC)
 
     #####################################
     # COMPUTING METRICS
     #####################################
-    # Graphs = [all_intermediate.graph, walking.graph, transit_systems.graph]
-    # names=["all_intermediata", "walking", "transit_systems"]
 
     if False:
         Graph = walking.graph
@@ -776,7 +768,7 @@ if __name__ == "__main__":
                         node_scaling=None, new_fig=False, last=False)
                 count+=1
 
-        # Draw Nodes based on Node2Vec on the graph
+    # Draw Nodes based on Node2Vec on the graph
     if False:
         random = [3180,3033,3967,2730,963] # P = 1, q = 1
         structural_similarity = [2721,3033,3071,5137,4881] # p 0.001 q = 1000
@@ -815,11 +807,10 @@ if __name__ == "__main__":
 
     # Calculate degree distribution
     if False:
-        # more_metrics.degreeDistribution(Graphs=Graphs, names=names)
-        pass
+        more_metrics.degreeDistribution(Graphs=Graphs, names=names)
 
     # Calculate  SCC, WCC, etc
-    if False:
+    if True:
         for G, name in zip(Graphs, names):
             scc = more_metrics.calculateBowTieStructure(G, name = name)
             # if name =="walking":
