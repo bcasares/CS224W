@@ -634,10 +634,11 @@ def find_clusters(X, n_clusters, rseed=2):
     rng = np.random.RandomState(rseed)
     i = rng.permutation(X.shape[0])[:n_clusters]
     centers = X[i]
-    print('max: %f, min: %f' % (np.min(X), np.max(X)))
-    print np.any(np.isnan(X))
-    print np.any(np.isinf(X))
+    #print('max: %f, min: %f' % (np.min(X), np.max(X)))
+    #print np.any(np.isnan(X))
+    #print np.any(np.isinf(X))
     while True:
+        #print(centers)
         # 2a. Assign labels based on closest center
         labels = pairwise_distances_argmin(X, centers, metric=wasserstein_distance)
         # 2b. Find new centers from means of points
@@ -645,6 +646,8 @@ def find_clusters(X, n_clusters, rseed=2):
         # 2c. Check for convergence
         if np.all(centers == new_centers): break
         centers = new_centers
+        # Break if values are invalid
+        if np.any(np.isnan(centers)) or np.any(np.isinf(centers)): break
     return centers, labels
 
 def find_node_roles(graph, attribute='weight'):
@@ -713,11 +716,11 @@ if __name__ == "__main__":
         #graph_file = PUBLIC_TRANSIT_GRAPH_WEIGHTED_PATH_LOAD # Weighted, both transit and walking
         #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING # Unweighted, only walking
         #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT # Unweighted, only transit
-        graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED # Weighted, only walking
+        #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED # Weighted, only walking
         #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED # Weighted, only transit
         #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_ALL_WEIGHTED_10PLUS # Weight, both transit and walking, only edge weight > 10
         #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_WALKING_WEIGHTED_10PLUS # Weight, only walking, only edge weight > 10
-        #graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED_10PLUS # Weight, only transit, only edge weight > 10
+        graph_file = PUBLIC_TRANSIT_GRAPH_PATH_LOAD_TRANSIT_WEIGHTED_10PLUS # Weight, only transit, only edge weight > 10
 
         # LOAD
         public_transport = PublicTransport(create_new=False, read_google_maps=False, plot_graph=False, \
@@ -828,11 +831,11 @@ if __name__ == "__main__":
         # Compute and plot node classification
         if True:
             node_roles = find_node_roles(public_transport.graph, attribute='weight')
-            public_transport.draw_map("Plots/public_transport_walking_node_classification_weight.png", plot_nodes=True, node_scaling='classification', classification=node_roles)
+            public_transport.draw_map("Plots/public_transport_transit_10plus_node_classification_weight.png", plot_nodes=True, node_scaling='classification', classification=node_roles)
             node_roles = find_node_roles(public_transport.graph, attribute='distance_meters')
-            public_transport.draw_map("Plots/public_transport_all_walking_node_classification_distance.png", plot_nodes=True, node_scaling='classification', classification=node_roles)
+            public_transport.draw_map("Plots/public_transport_transit_10plus_node_classification_distance.png", plot_nodes=True, node_scaling='classification', classification=node_roles)
             node_roles = find_node_roles(public_transport.graph, attribute='duration_seconds')
-            public_transport.draw_map("Plots/public_transport_all_walking_node_classification_duration.png", plot_nodes=True, node_scaling='classification', classification=node_roles)
+            public_transport.draw_map("Plots/public_transport_transit_10plus_node_classification_duration.png", plot_nodes=True, node_scaling='classification', classification=node_roles)
 
         # Compute clustering coefficients
         if False:
