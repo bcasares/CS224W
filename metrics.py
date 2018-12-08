@@ -161,7 +161,7 @@ def dijkstra(graph, source):
 def compute_centrality(graph, graph_type="", node_to_hash=None):
     if not node_to_hash: nx_graph = create_nx_graph(graph)
     else: nx_graph = create_nx_graph_new(graph, node_to_hash)
-    centrality = nx.eigenvector_centrality(nx_graph, weight='weight')
+    centrality = nx.eigenvector_centrality_numpy(nx_graph, weight='weight')
     #draw_map('Plots/node_centrality_'+graph_type, plot_centrality=centrality)
     return centrality
 
