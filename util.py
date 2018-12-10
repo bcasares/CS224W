@@ -516,6 +516,31 @@ def get_edge_weight_distribution(graph, weight_label='weight'):
     Y = [b for (a,b) in counts]
     return X, Y
 
+################r###########################################################
+###########################################################################
+# Get node degree distribution
+###########################################################################
+###########################################################################
+def get_node_degree_distribution(graph, weight_label='weight'):
+    X, Y = [], []
+    # Get counts
+    counts = defaultdict(list)
+    for node in graph.Nodes():
+        node_id, num_out_nodes = node.GetId(), node.GetOutDeg()
+        degree = 0
+        for i in range(num_out_nodes):
+            neighbor_id = node.GetOutNId(i)
+            edge_id = graph.GetEI(node_id, neighbor_id).GetId()
+            if weight_label == 'weight': weight = graph.GetIntAttrDatE(edge_id, weight_label)
+            else: weight = graph.GetFltAttrDatE(edge_id, weight_label)
+            if weight > 0: degree += weight # For some reason a few weights are -inf
+        counts[weight].append('1')
+    counts = [(key, len(value)) for (key, value) in sorted(counts.items()) if not key == 0]
+    # Convert to X, Y
+    X = [a for (a,b) in counts]
+    Y = [b for (a,b) in counts]
+    return X, Y
+
 ###########################################################################
 ###########################################################################
 # Main function
